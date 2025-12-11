@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D CROSS | Architectural Visualization</title>
+    <title>3D\CROSS | Architectural Visualization</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,17 +11,34 @@
 
     <style>
         /* --- 1. ГЛОБАЛЬНЫЕ НАСТРОЙКИ --- */
-        body, html {
+        html {
+            scroll-snap-type: y mandatory; /* Жесткое прилипание к секциям */
+            scroll-behavior: smooth;
+            height: 100%;
+            overflow-y: scroll;
+        }
+
+        body {
             margin: 0;
             padding: 0;
-            background-color: #0a0a0a; /* Черный фон */
+            background-color: #0a0a0a; /* ЕДИНЫЙ ЧЕРНЫЙ ФОН */
             color: #ffffff;
             font-family: 'Manrope', sans-serif;
             overflow-x: hidden;
+            height: 100%;
         }
 
         a { text-decoration: none; color: white; transition: 0.3s; }
-        
+
+        /* Настройка всех секций */
+        section {
+            scroll-snap-align: start; /* Секция прилипает к верху */
+            position: relative;
+            width: 100%;
+            background-color: #0a0a0a; /* ЕДИНЫЙ ЧЕРНЫЙ ФОН */
+            overflow: hidden; 
+        }
+
         /* --- 2. HEADER (МЕНЮ) --- */
         header {
             position: fixed;
@@ -30,80 +47,90 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            z-index: 100; /* Меню всегда сверху */
+            z-index: 100;
             box-sizing: border-box;
             background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
         }
 
-        .logo { font-weight: 600; font-size: 1.2rem; letter-spacing: 2px; text-transform: uppercase; }
-        .menu-btn { cursor: pointer; font-size: 1.5rem; }
+.logo { 
+    font-weight: 600; 
+    font-size: 1.8rem; /* Ваш новый размер логотипа */
+    letter-spacing: 2px; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+}
 
-        /* --- 3. ГЛАВНЫЙ ЭКРАН СО СЛАЙДЕРОМ --- */
+.menu-btn { 
+    cursor: pointer; 
+    font-size: 2rem;  /* Курсор превращается в руку при наведении */
+        }
+
+        /* --- 3. ГЛАВНЫЙ ЭКРАН (HERO) --- */
         .hero {
-            position: relative;
-            height: 100vh; /* Высота на весь экран */
-            width: 100%;
+            height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            overflow: hidden;
         }
 
-        /* Затемнение поверх картинок, чтобы текст читался */
         .overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.4); /* 40% темноты */
-            z-index: 1; 
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1;
+            pointer-events: none;
         }
 
-        /* Контейнер для картинок */
         .slideshow {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0; /* Картинки в самом низу */
+            z-index: 0;
         }
 
-        /* Сами картинки слайдера */
         .slide-img {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; /* Заполнять экран без искажений */
-            opacity: 0; /* Скрыты по умолчанию */
+            object-fit: cover;
+            opacity: 0; 
             transform: scale(1);
-            animation: imageAnimation 12s linear infinite; /* Цикл 12 секунды */
+            animation: imageAnimation 12s linear infinite; 
+            will-change: transform, opacity;
         }
 
-        /* Настройка очередности появления (4 картинки по 3 секунд) */
         .slide-img:nth-child(1) { animation-delay: 0s; }
         .slide-img:nth-child(2) { animation-delay: 3s; }
         .slide-img:nth-child(3) { animation-delay: 6s; }
         .slide-img:nth-child(4) { animation-delay: 9s; }
 
-        /* Логика анимации (Появление -> Зум -> Исчезновение) */
         @keyframes imageAnimation { 
             0% { opacity: 0; transform: scale(1); animation-timing-function: ease-in; }
-            4% { opacity: 1; transform: scale(1.02); animation-timing-function: ease-out; }
-            25% { opacity: 1; transform: scale(1.1); }
-            35% { opacity: 0; transform: scale(1.2); }
+            8% { opacity: 1; transform: scale(1.05); }
+            25% { opacity: 1; transform: scale(1.2); }
+            33% { opacity: 0; transform: scale(1.25); }
             100% { opacity: 0; }
         }
 
-        /* Текст поверх слайдера */
         .hero-content {
-            z-index: 2; /* Текст выше затемнения */
+            z-index: 3;
             position: relative;
             padding: 0 20px;
+            opacity: 0;
+            animation: contentFadeIn 1.5s ease-out forwards 0.5s;
+        }
+
+        @keyframes contentFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         h1 {
-            font-size: clamp(2.5rem, 6vw, 6rem); /* Адаптивный шрифт */
+            font-size: clamp(2.5rem, 6vw, 6rem);
             font-weight: 300;
             text-transform: uppercase;
             letter-spacing: 0.1em;
             margin: 0;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            text-shadow: 0 2px 20px rgba(0,0,0,0.7);
         }
 
         .subtitle {
@@ -112,276 +139,579 @@
             letter-spacing: 0.3em;
             text-transform: uppercase;
             color: #e0e0e0;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.7);
         }
 
-        /* --- 4. СЕКЦИЯ О НАС --- */
-        .about { padding: 100px 20px; max-width: 800px; margin: 0 auto; text-align: center; }
-        .about h2 { font-weight: 300; font-size: 2rem; margin-bottom: 20px; }
-        .about p { line-height: 1.6; color: #aaa; }
+        /* --- 4. СЕКЦИЯ ОБО МНЕ (FULLSCREEN) --- */
+        .about {
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            box-sizing: border-box;
+            z-index: 10;
+        }
 
-        /* --- 5. ПОРТФОЛИО (СЕТКА) --- */
-        .portfolio { padding: 50px 20px; background-color: #0a0a0a; }
-        
-        .grid {
+        .about-main {
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto 60px auto;
+        }
+
+        .about-main h2 {
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            font-weight: 300;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .main-desc {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            color: #ccc;
+        }
+
+        .benefits-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 60px;
+            border-top: 1px solid #333;
+            padding-top: 60px;
+        }
+
+        .benefit-card h3 {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 20px;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .benefit-card p {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            color: #aaa;
+        }
+
+        /* --- 5. ПОРТФОЛИО (СТЕНА) --- */
+        .portfolio {
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 40px 20px 40px;
+            box-sizing: border-box;
+        }
+
+        .portfolio h2 {
+            flex: 0 0 auto;
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #fff;
+            text-align: center;
+        }
+
+        .grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(3, minmax(0, 1fr)); /* Равные ряды */
+            gap: 10px;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
         }
 
         .project-card {
             position: relative;
-            aspect-ratio: 4 / 3;
+            width: 100%;
+            height: 100%;
             background: #1a1a1a;
             overflow: hidden;
             cursor: zoom-in;
         }
 
         .card-img {
-            width: 100%; height: 100%; object-fit: cover;
-            transition: transform 0.6s ease;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
             opacity: 0.8;
+            transition: all 0.5s ease;
+            display: block;
         }
 
-        .project-card:hover .card-img { transform: scale(1.05); opacity: 1; }
+        .project-card:hover .card-img { opacity: 1; transform: scale(1.05); }
+        .project-card:hover .card-info { opacity: 1; transform: translateY(0); }
 
         .card-info {
-            position: absolute; bottom: 20px; left: 20px;
-            opacity: 0; transition: 0.3s;
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            padding: 20px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            pointer-events: none;
         }
-        .project-card:hover .card-info { opacity: 1; }
+        .card-info h3 { font-size: 1rem; margin: 0; color: white; font-weight: 500; }
+        .card-info p { font-size: 0.8rem; margin: 5px 0 0 0; color: #ccc; }
 
-        /* --- 6. ПОДВАЛ --- */
-        footer { padding: 80px 20px; text-align: center; border-top: 1px solid #222; }
-        .cta { font-size: 1.5rem; display: block; margin-bottom: 20px; font-weight: 600; }
-
-        /* Мобильная адаптация */
-        @media (max-width: 768px) {
-            .grid { grid-template-columns: 1fr; }
-            h1 { font-size: 2.5rem; }
+        /* --- 6. ВИДЕО --- */
+        .video-showcase {
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            box-sizing: border-box;
         }
-/* --- СТИЛИ ДЛЯ ЛАЙТБОКСА (ПОЛНЫЙ ЭКРАН) --- */
-        .lightbox {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95); /* Почти черный фон */
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .video-wrapper video {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+
+        .play-btn-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.3);
+            transition: 0.3s;
+        }
+        .video-wrapper:hover .play-btn-overlay { background: rgba(0,0,0,0.1); }
+
+        .play-icon {
+            width: 80px; height: 80px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; color: white; padding-left: 5px;
+            transition: transform 0.3s ease;
+        }
+        .video-wrapper:hover .play-icon { transform: scale(1.1); background: rgba(255, 255, 255, 0.2); }
+
+        .video-caption { margin-top: 30px; text-align: center; }
+        .video-caption h3 { margin: 0; font-weight: 400; font-size: 1.2rem; letter-spacing: 2px; }
+        .video-caption p { color: #666; font-size: 0.9rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;}
+
+        /* --- 7. ПРАЙС --- */
+        .pricing {
+            height: 100vh;
+            height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 10000; /* Поверх всего */
-            opacity: 0;
-            pointer-events: none; /* Чтобы не мешал, когда скрыт */
-            transition: opacity 0.3s ease;
+            padding: 0 40px;
+            box-sizing: border-box;
         }
 
-        /* Когда активен - показываем */
-        .lightbox.active {
-            opacity: 1;
-            pointer-events: all;
+        .pricing-container { width: 100%; max-width: 1400px; }
+        
+        .pricing-header h2 {
+            font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px;
+            color: #555; margin-bottom: 60px; text-align: left;
         }
 
-        /* Картинка внутри лайтбокса */
-        .lightbox img {
-            max-width: 90%;
-            max-height: 90%;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            border-radius: 2px;
+        .pricing-grid {
+            display: flex; justify-content: space-between; gap: 40px; width: 100%;
         }
 
-        /* Кнопка закрытия (Крестик) */
-        .close-btn {
-            position: absolute;
-            top: 30px;
-            right: 40px;
-            font-size: 40px;
-            color: white;
-            cursor: pointer;
-            opacity: 0.7;
-            transition: 0.3s;
+        .price-item {
+            flex: 1;
+            border-left: 1px solid #333;
+            padding-left: 30px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            height: 200px; transition: 0.3s ease; cursor: default;
         }
+        .price-item:hover { border-left-color: #fff; }
+
+        .price-top { display: flex; flex-direction: column; gap: 5px; }
+        .p-name { font-size: 1.2rem; font-weight: 600; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+        .p-unit { font-size: 0.9rem; color: #888; }
+        .price-amount { font-size: 4rem; font-weight: 300; color: #fff; line-height: 1; }
+        .p-prefix { font-size: 1.5rem; vertical-align: super; margin-right: 5px; color: #555; }
+        .p-curr { font-size: 2rem; color: #555; }
+
+        /* --- 8. ФУТЕР --- */
+        footer {
+            padding: 100px 40px;
+            background-color: #0a0a0a; /* ЕДИНЫЙ ЧЕРНЫЙ ФОН */
+            scroll-snap-align: start;
+        }
+        .footer-label { font-size: 0.8rem; color: #555; letter-spacing: 2px; margin-bottom: 20px; }
+        .big-link {
+            display: block; font-size: clamp(2rem, 5vw, 5rem);
+            font-weight: 600; color: #fff; text-transform: uppercase;
+            border-bottom: 2px solid transparent; transition: 0.3s; margin-bottom: 60px;
+        }
+        .big-link:hover { opacity: 0.7; border-bottom: 2px solid #fff; }
+        
+        .socials { display: flex; gap: 30px; margin-bottom: 40px; flex-wrap: wrap; }
+        .socials a {
+            font-size: 1rem; text-transform: uppercase; color: #aaa;
+            border: 1px solid #333; padding: 10px 20px; border-radius: 50px;
+        }
+        .socials a:hover { background: #fff; color: #000; border-color: #fff; }
+        .copyright { font-size: 0.8rem; color: #333; margin-top: 50px; }
+
+        /* --- ДОПОЛНИТЕЛЬНЫЕ ЭЛЕМЕНТЫ (МЕНЮ, ЛАЙТБОКС) --- */
+        .overlay-menu {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .overlay-menu.active { opacity: 1; pointer-events: all; }
+        .menu-links { display: flex; flex-direction: column; text-align: center; gap: 30px; }
+        .menu-links a { font-size: 3rem; font-weight: 300; text-transform: uppercase; }
+        .close-menu { position: absolute; top: 30px; right: 40px; font-size: 50px; cursor: pointer; color: white; }
+
+        .lightbox {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .lightbox.active { opacity: 1; pointer-events: all; }
+        .lightbox img { max-width: 90%; max-height: 90%; box-shadow: 0 0 50px rgba(0,0,0,0.5); border-radius: 2px; }
+        .close-btn { position: absolute; top: 30px; right: 40px; font-size: 40px; color: white; cursor: pointer; opacity: 0.7; transition: 0.3s; }
         .close-btn:hover { opacity: 1; transform: rotate(90deg); }
-/* Стили для стрелок навигации */
         .nav-btn {
-            cursor: pointer;
-            position: absolute;
-            top: 50%;
-            width: auto;
-            padding: 16px;
-            margin-top: -50px;
-            color: white;
-            font-weight: bold;
-            font-size: 40px;
-            transition: 0.3s ease;
-            user-select: none;
-            opacity: 0.5;
+            cursor: pointer; position: absolute; top: 50%; width: auto; padding: 16px; margin-top: -50px;
+            color: white; font-weight: bold; font-size: 40px; transition: 0.3s ease; user-select: none; opacity: 0.5;
         }
-
         .nav-btn:hover { opacity: 1; background-color: rgba(0,0,0,0.8); }
-
-        /* Позиция стрелок */
         .next { right: 0; border-radius: 3px 0 0 3px; }
         .prev { left: 0; border-radius: 0 3px 3px 0; }
 
-        /* На мобильном стрелки чуть меньше */
+        /* --- МОБИЛЬНАЯ АДАПТАЦИЯ --- */
         @media (max-width: 768px) {
-            .nav-btn { font-size: 30px; padding: 10px; }
+            .about, .pricing, .portfolio, .video-showcase { 
+                height: auto; min-height: 100dvh; display: block; padding: 60px 20px;
+            }
+            .about { display: flex; } /* About оставляем флексом */
+            .benefits-grid { gap: 40px; }
+            .pricing-grid { flex-direction: column; gap: 60px; }
+            .price-item { border-left: none; border-top: 1px solid #333; padding-left: 0; padding-top: 20px; height: auto; }
+            .grid { height: auto; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(6, 200px); }
+            h1 { font-size: 2.5rem; }
+            .menu-links a { font-size: 2rem; }
         }
     </style>
 </head>
 <body>
 
+  <div id="overlay-menu" class="overlay-menu">
+        <span class="close-menu" onclick="toggleMenu()">&times;</span>
+        <div class="menu-links">
+            <a href="#" onclick="toggleMenu(); scrollToSection('.portfolio')">Работы</a>
+            
+            <a href="#" onclick="toggleMenu(); scrollToSection('.about')">Обо мне</a>
+            
+            <a href="#" onclick="toggleMenu(); scrollToSection('.pricing')">Стоимость</a>
+            
+            <a href="#" onclick="toggleMenu(); scrollToSection('footer')">Связь</a>
+        </div>
+    </div>
+
     <header>
-        <div class="logo">3D CROSS</div>
-        <div class="menu-btn">?</div>
+        <div class="logo" style="cursor: pointer;" onclick="scrollToSection('.hero')">3D\CROSS</div>
+        <div class="menu-btn">&#9776;</div>
     </header>
 
     <section class="hero">
         <div class="overlay"></div>
-
         <div class="slideshow">
             <img src="slide1.jpg" class="slide-img" alt="Slide 1">
             <img src="slide2.jpg" class="slide-img" alt="Slide 2">
             <img src="slide3.jpg" class="slide-img" alt="Slide 3">
             <img src="slide4.jpg" class="slide-img" alt="Slide 4">
         </div>
-
         <div class="hero-content">
             <h1>формы, рождаются<br>из вдохновения</h1>
-            <div class="subtitle">Architecture & CGI Studio</div>
+<div class="subtitle">Александр Гавриленко</div>
+            <div class="subtitle">3D визуализация</div>
         </div>
     </section>
 
     <section class="about">
-        <h2>Больше, чем просто рендер</h2>
-        <p>Мы создаем цифровую реальность для архитекторов и девелоперов. Наши изображения продают недвижимость еще до начала строительства.</p>
+        <div class="about-main">
+            <h2>Визуализация, которая продает ваши идеи</h2>
+            <p class="main-desc">Я не просто делаю «красивые картинки» — я помогаю вам и вашему заказчику увидеть будущее пространство в мельчайших деталях. Моя задача — превратить ваши чертежи и мудборды в фотореалистичную историю, которая снимает все вопросы еще до начала стройки.</p>
+        </div>
+        <div class="benefits-grid">
+            <div class="benefit-card">
+                <h3>Персональная ответственность</h3>
+                <p>Я работаю один, а значит, лично отвечаю за каждый пиксель и соблюдение дедлайна. Никаких менеджеров-посредников.</p>
+            </div>
+            <div class="benefit-card">
+                <h3>Гибкость</h3>
+                <p>Умею перестроить график под «горящие» проекты и срочные правки, когда это действительно необходимо.</p>
+            </div>
+            <div class="benefit-card">
+                <h3>Прозрачность</h3>
+                <p>Работаю официально как ИП/Самозанятый (выдаю чек, при необходимости — договор). Все прозрачно.</p>
+            </div>
+        </div>
     </section>
 
- <section class="portfolio">
-        
-        <div style="padding-bottom: 40px; text-align: center;">
-            <h2 style="font-weight: 300; text-transform: uppercase; letter-spacing: 2px; font-size: 1.5rem;">Selected Works</h2>
-        </div>
-
+    <section class="portfolio">
+        <h2>Работы</h2>
         <div class="grid">
-            
-            <div class="project-card"data-images="p1.jpg, p2.jpg, p3.jpg, p4.jpg">
+            <div class="project-card" data-images="p1.jpg, p2.jpg, p3.jpg, p4.jpg">
                 <img src="p1.jpg" class="card-img" alt="Project 1">
                 <div class="card-info">
                     <h3>Moscow. Old fund.</h3>
                     <p>Livingroom / 2025</p>
                 </div>
             </div>
-
-            <div class="project-card"data-images="b1.jpg, b2.jpg, b3.jpg, b4.jpg, b5.jpg, b6.jpg">
-                <img src="p1.jpg" class="card-img" alt="Project 1">
+            <div class="project-card" data-images="b1.jpg, b2.jpg, b3.jpg, b4.jpg, b5.jpg, b6.jpg">
+                <img src="b1.jpg" class="card-img" alt="Moscow Freedom">
                 <div class="card-info">
-                    <h3>Moscow. Freedom.</h3>
-                    <p>Livingroom / 2025</p>
+                    <h3>Moscow Freedom</h3>
+                    <p>Livingroom</p>
+                </div>
+            </div>
+            <div class="project-card" data-images="n1.jpg, n2.jpg, n3.jpg, n4.jpg">
+                <img src="n1.jpg" class="card-img" alt="New York">
+                <div class="card-info">
+                    <h3>New York. 9 Avenue</h3>
+                    <p>Children's room</p>
+                </div>
+            </div>
+            <div class="project-card" data-images="k1.jpg, k2.jpg, k3.jpg, k4.jpg, k5.jpg">
+                <img src="k1.jpg" class="card-img" alt="Moscow Kutuzovskiy">
+                <div class="card-info">
+                    <h3>Moscow Kutuzovskiy 23</h3>
+                    <p>Livingroom</p>
                 </div>
             </div>
 
-            <div class="project-card">
-                <img src="p3.jpg" class="card-img" alt="Project 3">
+            <div class="project-card" data-images="s1.jpg, s2.jpg, s3.jpg, s4.jpg">
+                <img src="s1.jpg" class="card-img" alt="Moscow">
                 <div class="card-info">
-                    <h3>Villa Norway</h3>
-                    <p>Competition</p>
+                    <h3>Moscow</h3>
+                    <p>Beauty salon</p>
+                </div>
+            </div>
+            <div class="project-card" data-images="m1.jpg, m2.jpg, m3.jpg">
+                <img src="m1.jpg" class="card-img" alt="Novosibirsk">
+                <div class="card-info">
+                    <h3>Novosibirsk</h3>
+                    <p>Beauty salon</p>
+                </div>
+            </div>
+            <div class="project-card" data-images="a1.jpg, a2.jpg, a3.jpg, a4.jpg">
+                <img src="a1.jpg" class="card-img" alt="Moscow">
+                <div class="card-info">
+                    <h3>Moscow. Avantgarde</h3>
+                    <p>Furniture salon</p>
+                </div>
+            </div>
+            <div class="project-card" data-images="g1.jpg, g2.jpg, g3.jpg">
+                <img src="g1.jpg" class="card-img" alt="Moscow">
+                <div class="card-info">
+                    <h3>Moscow. GloraX</h3>
+                    <p>Entrance</p>
                 </div>
             </div>
 
-            <div class="project-card">
-                <img src="p4.jpg" class="card-img" alt="Project 4">
+            <div class="project-card" data-images="y1.jpg, y2.jpg, y3.jpg, y4.jpg">
+                <img src="y1.jpg" class="card-img" alt="New York">
                 <div class="card-info">
-                    <h3>Modern Interior</h3>
-                    <p>Living Room</p>
+                    <h3>New York. 9 Avenue</h3>
+                    <p>Livingroom</p>
+                </div>
+            </div>
+            <div class="project-card" data-images="f1.jpg, f2.jpg, f3.jpg, f4.jpg">
+                <img src="f1.jpg" class="card-img" alt="Moscow">
+                <div class="card-info">
+                    <h3>Moscow</h3>
+                    <p>Kitchen</p>
+                </div>
+            </div>
+            <div class="project-card" data-images="slide1.jpg, slide2.jpg">
+                <img src="slide1.jpg" class="card-img" alt="Sochi">
+                <div class="card-info">
+                    <h3>Sochi</h3>
+                    <p>Kitchen</p>
+                </div>
+            </div>
+            <div class="project-card" data-images="o1.jpg, o2.jpg, o3.jpg">
+                <img src="o1.jpg" class="card-img" alt="Kemerovo">
+                <div class="card-info">
+                    <h3>Kemerovo</h3>
+                    <p>Bedroom</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="video-showcase">
+        <div class="video-wrapper">
+            <video id="videoPlayer" src="showreel14.mp4" poster="cover.jpg" playsinline></video>
+            
+            <div class="play-btn-overlay" onclick="playVideo()">
+                <div class="play-icon">▶</div>
+            </div>
+        </div>
+        <div class="video-caption">
+            <h3>Kemerovo. Children's room</h3>
+            <p>AI Animation</p>
+        </div>
+    </section>
+
+    <section class="pricing">
+        <div class="pricing-container">
+            <div class="pricing-header">
+                <h2>Стоимость</h2>
+            </div>
+            <div class="pricing-grid">
+                <div class="price-item">
+                    <div class="price-top">
+                        <span class="p-name">По площади</span>
+                        <span class="p-unit">за м²</span>
+                    </div>
+                    <div class="price-amount">
+                        <span class="p-prefix">от</span> 800 <span class="p-curr">₽</span>
+                    </div>
+                </div>
+                <div class="price-item">
+                    <div class="price-top">
+                        <span class="p-name">По ракурсам</span>
+                        <span class="p-unit">за ракурс</span>
+                    </div>
+                    <div class="price-amount">
+                        <span class="p-prefix">от</span> 8 000 <span class="p-curr">₽</span>
+                    </div>
+                </div>
+                <div class="price-item">
+                    <div class="price-top">
+                        <span class="p-name">AI Анимация</span>
+                        <span class="p-unit">за ракурс</span>
+                    </div>
+                    <div class="price-amount">
+                        <span class="p-prefix">от</span> 1 000 <span class="p-curr">₽</span>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
     <footer>
-        <a href="mailto:info@3dcross.com" class="cta">LET'S DISCUSS YOUR PROJECT</a>
-        <p>© 2024 3D CROSS</p>
+        <div class="footer-content">
+            <p class="footer-label">связь</p>
+            <a href="mailto:3d_cross@mail.ru" class="big-link">3d_cross@mail.ru</a>
+            
+            <div class="socials">
+                <a href="http://instagram.com/3d_cross"target="_blank">Instagram</a>
+                <a href="https://www.behance.net/3d_cross1d4b"target="_blank">Behance</a>
+                <a href="https://t.me/GavAlexandr"target="_blank">Telegram</a>
+                <a href="https://max.ru/u/f9LHodD0cOINNX4XitygJIdHULaRM3fOY_Z-Zq7cl2il4RqZBcMWAQJhqwE"target="_blank">Max</a>
+                <a href="https://profi.ru/profile/GavrilenkoAS12/?utm_source=backoffice&utm_medium=app&utm_campaign=share"target="_blank">Profi.ru</a>
+        
+          </div>
+            
+            <div class="copyright">
+                © 2025 3D\CROSS STUDIO. All rights reserved.
+            </div>
+        </div>
     </footer>
-<div id="lightbox" class="lightbox" onclick="closeLightbox(event)">
+
+    <div id="lightbox" class="lightbox" onclick="closeLightbox(event)">
         <span class="close-btn" onclick="closeLightbox(event)">&times;</span>
-        
         <div class="nav-btn prev" onclick="changeSlide(-1, event)">&#10094;</div>
-        
         <img id="lightbox-img" src="">
-        
         <div class="nav-btn next" onclick="changeSlide(1, event)">&#10095;</div>
     </div>
 
     <script>
-        let currentImages = []; // Здесь будет список картинок текущего проекта
-        let currentIndex = 0;   // Номер текущей картинки (0, 1, 2...)
-        
+        // --- 1. ЛОГИКА ГАЛЕРЕИ (LIGHTBOX) ---
+        let currentImages = []; 
+        let currentIndex = 0;   
         const lightbox = document.getElementById('lightbox');
         const lightboxImg = document.getElementById('lightbox-img');
-
-        // 1. ОТКРЫТИЕ ПРОЕКТА
         const cards = document.querySelectorAll('.project-card');
         
         cards.forEach(card => {
             card.addEventListener('click', function() {
-                // Получаем список картинок из атрибута data-images
-                // Удаляем пробелы и разбиваем строку по запятой
                 const imagesRaw = this.getAttribute('data-images');
-                
-                // Проверка: если забыли добавить data-images, берем просто обложку
                 if (!imagesRaw) {
                     currentImages = [this.querySelector('img').src];
                 } else {
                     currentImages = imagesRaw.split(',').map(img => img.trim());
                 }
-
-                // Начинаем с первой картинки (индекс 0)
                 currentIndex = 0;
                 updateImage();
-                
-                // Показываем лайтбокс
                 lightbox.classList.add('active');
             });
         });
 
-        // 2. СМЕНА СЛАЙДА (Влево/Вправо)
         function changeSlide(direction, event) {
-            // Останавливаем всплытие, чтобы не сработал клик по фону (закрытие)
             if(event) event.stopPropagation();
-
             currentIndex += direction;
-
-            // Логика "кольца": если дошли до конца, идем в начало
-            if (currentIndex >= currentImages.length) {
-                currentIndex = 0;
-            } else if (currentIndex < 0) {
-                currentIndex = currentImages.length - 1;
-            }
-
+            if (currentIndex >= currentImages.length) currentIndex = 0;
+            else if (currentIndex < 0) currentIndex = currentImages.length - 1;
             updateImage();
         }
 
-        // Обновление картинки src
-        function updateImage() {
-            lightboxImg.src = currentImages[currentIndex];
-        }
+        function updateImage() { lightboxImg.src = currentImages[currentIndex]; }
 
-        // 3. ЗАКРЫТИЕ
         function closeLightbox(event) {
-            // Закрываем, только если кликнули по фону или крестику (не по картинке)
             if (!event || event.target === lightbox || event.target.classList.contains('close-btn')) {
                 lightbox.classList.remove('active');
             }
         }
         
-        // 4. УПРАВЛЕНИЕ КЛАВИШАМИ (Стрелки на клавиатуре)
         document.addEventListener('keydown', function(e) {
             if (!lightbox.classList.contains('active')) return;
-            
             if (e.key === 'ArrowLeft') changeSlide(-1);
             if (e.key === 'ArrowRight') changeSlide(1);
             if (e.key === 'Escape') closeLightbox();
         });
+
+        // --- 2. ЛОГИКА МЕНЮ ---
+        function toggleMenu() {
+            const menu = document.getElementById('overlay-menu');
+            menu.classList.toggle('active');
+        }
+        function scrollToSection(selector) {
+            document.querySelector(selector).scrollIntoView({ behavior: 'smooth' });
+        }
+        document.querySelector('.menu-btn').addEventListener('click', toggleMenu);
+
+        // --- 3. ЛОГИКА ВИДЕО ---
+        function playVideo() {
+            const video = document.getElementById('videoPlayer');
+            const btn = document.querySelector('.play-btn-overlay');
+            if (video) {
+                btn.style.display = 'none';
+                video.controls = true;
+                video.play();
+            }
+        }
     </script>
+
 </body>
 </html>
