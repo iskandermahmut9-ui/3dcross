@@ -7,12 +7,12 @@
     <title>3D CROSS | Архитектурная 3D визуализация и рендер</title>
     
     <meta name="description" content="Студия 3D визуализации. Создаем фотореалистичные рендеры интерьеров и экстерьеров. Работаем официально, соблюдаем дедлайны. Портфолио и цены.">
-    
     <meta name="keywords" content="3d визуализация, рендер интерьера, архитектурная визуализация, 3d cross, визуализатор, cgi studio">
 
     <meta property="og:title" content="3D CROSS | Архитектурная визуализация">
     <meta property="og:description" content="Превращаю чертежи в фотореалистичные образы. Смотреть портфолио ->">
-    <meta property="og:image" content="https://3dcross.ru/p1.jpg"> <meta property="og:type" content="website">
+    <meta property="og:image" content="https://3dcross.ru/p1.jpg">
+    <meta property="og:type" content="website">
     <meta property="og:url" content="https://3dcross.ru/">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,10 +20,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600&display=swap" rel="stylesheet">
 
     <link rel="icon" type="image/png" href="logo2.png">
+
     <style>
         /* --- 1. ГЛОБАЛЬНЫЕ НАСТРОЙКИ --- */
         html {
-            scroll-snap-type: y mandatory; /* Жесткое прилипание к секциям */
+            scroll-snap-type: y mandatory;
             scroll-behavior: smooth;
             height: 100%;
             overflow-y: scroll;
@@ -32,7 +33,7 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #0a0a0a; /* ЕДИНЫЙ ЧЕРНЫЙ ФОН */
+            background-color: #0a0a0a;
             color: #ffffff;
             font-family: 'Manrope', sans-serif;
             overflow-x: hidden;
@@ -41,12 +42,11 @@
 
         a { text-decoration: none; color: white; transition: 0.3s; }
 
-        /* Настройка всех секций */
         section {
-            scroll-snap-align: start; /* Секция прилипает к верху */
+            scroll-snap-align: start;
             position: relative;
             width: 100%;
-            background-color: #0a0a0a; /* ЕДИНЫЙ ЧЕРНЫЙ ФОН */
+            background-color: #0a0a0a;
             overflow: hidden; 
         }
 
@@ -63,17 +63,17 @@
             background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
         }
 
-.logo { 
-    font-weight: 600; 
-    font-size: 1.8rem; /* Ваш новый размер логотипа */
-    letter-spacing: 2px; 
-    text-transform: uppercase; 
-    cursor: pointer; 
-}
+        .logo { 
+            font-weight: 600; 
+            font-size: 1.8rem; 
+            letter-spacing: 2px; 
+            text-transform: uppercase; 
+            cursor: pointer; 
+        }
 
-.menu-btn { 
-    cursor: pointer; 
-    font-size: 2rem;  /* Курсор превращается в руку при наведении */
+        .menu-btn { 
+            cursor: pointer; 
+            font-size: 2rem; 
         }
 
         /* --- 3. ГЛАВНЫЙ ЭКРАН (HERO) --- */
@@ -153,7 +153,7 @@
             text-shadow: 0 2px 10px rgba(0,0,0,0.7);
         }
 
-        /* --- 4. СЕКЦИЯ ОБО МНЕ (FULLSCREEN) --- */
+        /* --- 4. СЕКЦИЯ ОБО МНЕ --- */
         .about {
             height: 100vh;
             height: 100dvh;
@@ -210,7 +210,7 @@
             color: #aaa;
         }
 
-        /* --- 5. ПОРТФОЛИО (СТЕНА) --- */
+        /* --- 5. ПОРТФОЛИО --- */
         .portfolio {
             height: 100vh;
             height: 100dvh;
@@ -235,7 +235,7 @@
             flex: 1;
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(3, minmax(0, 1fr)); /* Равные ряды */
+            grid-template-rows: repeat(3, minmax(0, 1fr));
             gap: 10px;
             width: 100%;
             height: 100%;
@@ -367,7 +367,7 @@
         /* --- 8. ФУТЕР --- */
         footer {
             padding: 100px 40px;
-            background-color: #0a0a0a; /* ЕДИНЫЙ ЧЕРНЫЙ ФОН */
+            background-color: #0a0a0a;
             scroll-snap-align: start;
         }
         .footer-label { font-size: 0.8rem; color: #555; letter-spacing: 2px; margin-bottom: 20px; }
@@ -386,7 +386,7 @@
         .socials a:hover { background: #fff; color: #000; border-color: #fff; }
         .copyright { font-size: 0.8rem; color: #333; margin-top: 50px; }
 
-        /* --- ДОПОЛНИТЕЛЬНЫЕ ЭЛЕМЕНТЫ (МЕНЮ, ЛАЙТБОКС) --- */
+        /* --- ДОПОЛНИТЕЛЬНЫЕ ЭЛЕМЕНТЫ --- */
         .overlay-menu {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 200;
@@ -421,7 +421,7 @@
             .about, .pricing, .portfolio, .video-showcase { 
                 height: auto; min-height: 100dvh; display: block; padding: 60px 20px;
             }
-            .about { display: flex; } /* About оставляем флексом */
+            .about { display: flex; }
             .benefits-grid { gap: 40px; }
             .pricing-grid { flex-direction: column; gap: 60px; }
             .price-item { border-left: none; border-top: 1px solid #333; padding-left: 0; padding-top: 20px; height: auto; }
@@ -437,11 +437,8 @@
         <span class="close-menu" onclick="toggleMenu()">&times;</span>
         <div class="menu-links">
             <a href="#" onclick="toggleMenu(); scrollToSection('.portfolio')">Работы</a>
-            
             <a href="#" onclick="toggleMenu(); scrollToSection('.about')">Обо мне</a>
-            
             <a href="#" onclick="toggleMenu(); scrollToSection('.pricing')">Стоимость</a>
-            
             <a href="javascript:void(0)" onclick="toggleMenu(); scrollToSection('#contact')">Связь</a>
         </div>
     </div>
@@ -461,7 +458,7 @@
         </div>
         <div class="hero-content">
             <h1>формы, рождаются<br>из вдохновения</h1>
-<div class="subtitle">Александр Гавриленко</div>
+            <div class="subtitle">Александр Гавриленко</div>
             <div class="subtitle">3D визуализация</div>
         </div>
     </section>
@@ -520,7 +517,7 @@
             </div>
 
             <div class="project-card" data-images="s1.jpg, s2.jpg, s3.jpg, s4.jpg">
-                <img src="s1.jpg" class="card-img" alt="Дизайн-проект и рендер салона красоты, зона ожидания>
+                <img src="s1.jpg" class="card-img" alt="Дизайн-проект и рендер салона красоты, зона ожидания">
                 <div class="card-info">
                     <h3>Moscow</h3>
                     <p>Beauty salon</p>
@@ -643,13 +640,12 @@
             <a href="mailto:3d_cross@mail.ru" class="big-link">3d_cross@mail.ru</a>
             <a href="tel:+79150469023" class="big-link">+7 (915) 046-90-23</a>
             <div class="socials">
-                <a href="http://instagram.com/3d_cross"target="_blank">Instagram</a>
-                <a href="https://www.behance.net/3d_cross1d4b"target="_blank">Behance</a>
-                <a href="https://t.me/GavAlexandr"target="_blank">Telegram</a>
-                <a href="https://max.ru/u/f9LHodD0cOINNX4XitygJIdHULaRM3fOY_Z-Zq7cl2il4RqZBcMWAQJhqwE"target="_blank">Max</a>
-                <a href="https://profi.ru/profile/GavrilenkoAS12/?utm_source=backoffice&utm_medium=app&utm_campaign=share"target="_blank">Profi.ru</a>
-        
-          </div>
+                <a href="http://instagram.com/3d_cross" target="_blank">Instagram</a>
+                <a href="https://www.behance.net/3d_cross1d4b" target="_blank">Behance</a>
+                <a href="https://t.me/GavAlexandr" target="_blank">Telegram</a>
+                <a href="https://max.ru/u/f9LHodD0cOINNX4XitygJIdHULaRM3fOY_Z-Zq7cl2il4RqZBcMWAQJhqwE" target="_blank">Max</a>
+                <a href="https://profi.ru/profile/GavrilenkoAS12/?utm_source=backoffice&utm_medium=app&utm_campaign=share" target="_blank">Profi.ru</a>
+            </div>
             
             <div class="copyright">
                 © 2025 3D\CROSS STUDIO. All rights reserved.
@@ -733,8 +729,3 @@
 
 </body>
 </html>
-
-
-
-
-
