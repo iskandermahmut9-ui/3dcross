@@ -406,12 +406,14 @@
         }
         .lightbox.active { opacity: 1; pointer-events: all; }
         .lightbox img { max-width: 90%; max-height: 90%; box-shadow: 0 0 50px rgba(0,0,0,0.5); border-radius: 2px; }
+        
+        /* ИСПРАВЛЕНО: Добавлен z-index для кнопок, чтобы они были поверх картинки */
         .close-btn { position: absolute; top: 30px; right: 40px; font-size: 40px; color: white; cursor: pointer; opacity: 0.7; transition: 0.3s; z-index: 20; }
         .close-btn:hover { opacity: 1; transform: rotate(90deg); }
         .nav-btn {
             cursor: pointer; position: absolute; top: 50%; width: auto; padding: 16px; margin-top: -50px;
             color: white; font-weight: bold; font-size: 40px; transition: 0.3s ease; user-select: none; opacity: 0.5;
-            z-index: 10; /* ВАЖНОЕ ИСПРАВЛЕНИЕ: Кнопки поверх фото */
+            z-index: 10; /* ВАЖНО: Кнопки навигации поверх фото */
         }
         .nav-btn:hover { opacity: 1; background-color: rgba(0,0,0,0.8); }
         .next { right: 0; border-radius: 3px 0 0 3px; }
