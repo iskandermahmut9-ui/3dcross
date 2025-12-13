@@ -406,11 +406,12 @@
         }
         .lightbox.active { opacity: 1; pointer-events: all; }
         .lightbox img { max-width: 90%; max-height: 90%; box-shadow: 0 0 50px rgba(0,0,0,0.5); border-radius: 2px; }
-        .close-btn { position: absolute; top: 30px; right: 40px; font-size: 40px; color: white; cursor: pointer; opacity: 0.7; transition: 0.3s; }
+        .close-btn { position: absolute; top: 30px; right: 40px; font-size: 40px; color: white; cursor: pointer; opacity: 0.7; transition: 0.3s; z-index: 20; }
         .close-btn:hover { opacity: 1; transform: rotate(90deg); }
         .nav-btn {
             cursor: pointer; position: absolute; top: 50%; width: auto; padding: 16px; margin-top: -50px;
             color: white; font-weight: bold; font-size: 40px; transition: 0.3s ease; user-select: none; opacity: 0.5;
+            z-index: 10; /* ВАЖНОЕ ИСПРАВЛЕНИЕ: Кнопки поверх фото */
         }
         .nav-btn:hover { opacity: 1; background-color: rgba(0,0,0,0.8); }
         .next { right: 0; border-radius: 3px 0 0 3px; }
@@ -445,13 +446,13 @@
 
     <header>
         <div class="logo" style="cursor: pointer;" onclick="scrollToSection('.hero')">3D\CROSS</div>
-        <div class="menu-btn">&#9776;</div>
+        <div class="menu-btn" onclick="toggleMenu()">&#9776;</div>
     </header>
 
     <section class="hero">
         <div class="overlay"></div>
         <div class="slideshow">
-<img src="slide1.jpg" class="slide-img" alt="Визуализация интерьера студии">
+            <img src="slide1.jpg" class="slide-img" alt="Визуализация интерьера студии">
             <img src="slide2.jpg" class="slide-img" alt="Визуализация интерьера гостиной">
             <img src="slide3.jpg" class="slide-img" alt="Дизайн-проект и визуализация студии">
             <img src="slide4.jpg" class="slide-img" alt="Дизайн-проект и 3D визуализация">
@@ -683,7 +684,7 @@
         });
 
         function changeSlide(direction, event) {
-            if(event) event.stopPropagation();
+            if(event) event.stopPropagation(); // Останавливаем всплытие, чтобы не закрылся лайтбокс
             currentIndex += direction;
             if (currentIndex >= currentImages.length) currentIndex = 0;
             else if (currentIndex < 0) currentIndex = currentImages.length - 1;
@@ -693,6 +694,7 @@
         function updateImage() { lightboxImg.src = currentImages[currentIndex]; }
 
         function closeLightbox(event) {
+            // Закрываем, только если клик был по фону (lightbox) или по крестику
             if (!event || event.target === lightbox || event.target.classList.contains('close-btn')) {
                 lightbox.classList.remove('active');
             }
@@ -708,4 +710,29 @@
         // --- 2. ЛОГИКА МЕНЮ ---
         function toggleMenu() {
             const menu = document.getElementById('overlay-menu');
-            menu.classList.toggle
+            menu.classList.toggle('active');
+        }
+
+        // --- 3. СКРОЛЛ К СЕКЦИЯМ ---
+        function scrollToSection(selector) {
+            const el = document.querySelector(selector);
+            if(el) el.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // --- 4. ЛОГИКА ВИДЕО ---
+        function playVideo() {
+            const video = document.getElementById('videoPlayer');
+            const overlay = document.querySelector('.play-btn-overlay');
+            if (video.paused) {
+                video.play();
+                overlay.style.opacity = '0'; // Скрываем кнопку
+                video.setAttribute('controls', 'controls'); // Включаем управление
+            } else {
+                video.pause();
+                overlay.style.opacity = '1';
+                video.removeAttribute('controls');
+            }
+        }
+    </script>
+</body>
+</html>
