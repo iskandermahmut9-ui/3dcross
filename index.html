@@ -62,7 +62,7 @@
             align-items: center;
             z-index: 100;
             box-sizing: border-box;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
         }
 
         .logo { 
@@ -157,8 +157,7 @@
 
         /* --- 4. СЕКЦИЯ ОБО МНЕ --- */
         .about {
-            height: 100vh;
-            height: 100dvh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -215,10 +214,10 @@
         /* --- 5. ПОРТФОЛИО --- */
         .portfolio {
             height: 100vh;
-            height: 100dvh;
+            /* height: 100dvh; - убираем жесткую фиксацию, чтобы не ломать мобилку */
             display: flex;
             flex-direction: column;
-            padding: 20px 40px 20px 40px;
+            padding: 80px 40px 20px 40px; /* Отступ сверху увеличен для меню */
             box-sizing: border-box;
         }
 
@@ -250,7 +249,7 @@
             height: 100%;
             background: #1a1a1a;
             overflow: hidden;
-            cursor: zoom-in;
+            cursor: pointer;
         }
 
         .card-img {
@@ -259,7 +258,7 @@
             object-fit: cover;
             object-position: center;
             opacity: 0.8;
-            transition: all 0.5s ease;
+            transition: opacity 0.3s ease, transform 0.5s ease;
             display: block;
         }
 
@@ -330,12 +329,11 @@
 
         /* --- 7. ПРАЙС --- */
         .pricing {
-            height: 100vh;
-            height: 100dvh;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0 40px;
+            padding: 80px 40px;
             box-sizing: border-box;
         }
 
@@ -386,7 +384,7 @@
             border: 1px solid #333; padding: 10px 20px; border-radius: 50px;
         }
         .socials a:hover { background: #fff; color: #000; border-color: #fff; }
-        /* ИСПРАВЛЕНО: Стиль копирайта */
+        
         .copyright { font-size: 0.8rem; color: #333; margin-top: 50px; line-height: 1.6; }
 
         /* --- ДОПОЛНИТЕЛЬНЫЕ ЭЛЕМЕНТЫ --- */
@@ -409,7 +407,6 @@
         }
         .lightbox.active { opacity: 1; pointer-events: all; }
         
-        /* ГАЛЕРЕЯ FIX: Кнопки поверх картинки */
         .lightbox img { 
             max-width: 90%; 
             max-height: 90%; 
@@ -436,16 +433,49 @@
         .next { right: 0; border-radius: 3px 0 0 3px; }
         .prev { left: 0; border-radius: 0 3px 3px 0; }
 
-        /* --- МОБИЛЬНАЯ АДАПТАЦИЯ --- */
+        /* --- ВАЖНЫЕ ПРАВКИ ДЛЯ МОБИЛЬНОЙ ВЕРСИИ --- */
         @media (max-width: 768px) {
-            .about, .pricing, .portfolio, .video-showcase { 
-                height: auto; min-height: 100dvh; display: block; padding: 60px 20px;
+            /* 1. Отключаем "прилипание" прокрутки, так как это ломает просмотр длинного контента */
+            html { scroll-snap-type: none; }
+
+            /* 2. Разрешаем секциям растягиваться по высоте контента */
+            section {
+                height: auto !important;
+                min-height: 100vh;
+                overflow: visible !important; /* Важно: чтобы контент не обрезался */
             }
-            .about { display: flex; }
-            .benefits-grid { gap: 40px; }
+
+            .about { 
+                display: block; /* Убираем flex центрирование по вертикали, чтобы верх не обрезался */
+                padding: 100px 20px 40px 20px; /* Отступ сверху, чтобы текст не заезжал под меню */
+            }
+
+            .about-main { margin-bottom: 40px; }
+            
+            .benefits-grid { 
+                display: flex; 
+                flex-direction: column; 
+                gap: 40px; 
+            }
+
+            .portfolio {
+                height: auto !important;
+                display: block;
+                padding: 80px 20px;
+            }
+
+            /* 3. Исправление сетки портфолио для мобильных: показываем ВСЕ элементы */
+            .grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr; /* 2 колонки */
+                grid-template-rows: auto; /* Автоматическая высота */
+                grid-auto-rows: 200px; /* Каждый следующий ряд тоже 200px */
+                height: auto;
+                gap: 10px;
+            }
+            
             .pricing-grid { flex-direction: column; gap: 60px; }
             .price-item { border-left: none; border-top: 1px solid #333; padding-left: 0; padding-top: 20px; height: auto; }
-            .grid { height: auto; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(6, 200px); }
             h1 { font-size: 2.5rem; }
             .menu-links a { font-size: 2rem; }
         }
@@ -690,6 +720,7 @@
         const cards = document.querySelectorAll('.project-card');
         
         cards.forEach(card => {
+            // Клик для открытия лайтбокса
             card.addEventListener('click', function() {
                 const imagesRaw = this.getAttribute('data-images');
                 if (!imagesRaw) {
@@ -701,10 +732,39 @@
                 updateImage();
                 lightbox.classList.add('active');
             });
+
+            // --- НОВОЕ: Эффект перелистывания при наведении (для ПК) ---
+            let hoverInterval;
+            let hoverIndex = 0;
+            const imgElement = card.querySelector('.card-img');
+            const originalSrc = imgElement.src;
+            const imagesRaw = card.getAttribute('data-images');
+            
+            if (imagesRaw) {
+                const hoverImages = imagesRaw.split(',').map(img => img.trim());
+                
+                card.addEventListener('mouseenter', () => {
+                    // Если экран шире 768px (ПК), включаем слайдшоу
+                    if (window.innerWidth > 768) {
+                        hoverIndex = 0;
+                        hoverInterval = setInterval(() => {
+                            hoverIndex = (hoverIndex + 1) % hoverImages.length;
+                            imgElement.src = hoverImages[hoverIndex];
+                        }, 1000); // Меняем картинку каждую секунду
+                    }
+                });
+
+                card.addEventListener('mouseleave', () => {
+                    if (hoverInterval) {
+                        clearInterval(hoverInterval);
+                        imgElement.src = originalSrc; // Возвращаем обложку
+                    }
+                });
+            }
         });
 
         function changeSlide(direction, event) {
-            if(event) event.stopPropagation(); // Останавливаем всплытие, чтобы не закрылся лайтбокс
+            if(event) event.stopPropagation(); 
             currentIndex += direction;
             if (currentIndex >= currentImages.length) currentIndex = 0;
             else if (currentIndex < 0) currentIndex = currentImages.length - 1;
@@ -714,7 +774,6 @@
         function updateImage() { lightboxImg.src = currentImages[currentIndex]; }
 
         function closeLightbox(event) {
-            // Закрываем, только если клик был по фону (lightbox) или по крестику
             if (!event || event.target === lightbox || event.target.classList.contains('close-btn')) {
                 lightbox.classList.remove('active');
             }
@@ -745,8 +804,8 @@
             const overlay = document.querySelector('.play-btn-overlay');
             if (video.paused) {
                 video.play();
-                overlay.style.opacity = '0'; // Скрываем кнопку
-                video.setAttribute('controls', 'controls'); // Включаем управление
+                overlay.style.opacity = '0'; 
+                video.setAttribute('controls', 'controls'); 
             } else {
                 video.pause();
                 overlay.style.opacity = '1';
