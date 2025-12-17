@@ -214,10 +214,9 @@
         /* --- 5. ПОРТФОЛИО --- */
         .portfolio {
             height: 100vh;
-            /* height: 100dvh; - убираем жесткую фиксацию, чтобы не ломать мобилку */
             display: flex;
             flex-direction: column;
-            padding: 80px 40px 20px 40px; /* Отступ сверху увеличен для меню */
+            padding: 80px 40px 20px 40px;
             box-sizing: border-box;
         }
 
@@ -385,7 +384,25 @@
         }
         .socials a:hover { background: #fff; color: #000; border-color: #fff; }
         
-        .copyright { font-size: 0.8rem; color: #333; margin-top: 50px; line-height: 1.6; }
+        /* ИСПРАВЛЕНО: Копирайт по центру и белый */
+        .copyright { 
+            font-size: 0.8rem; 
+            color: white; /* Белый цвет */
+            margin-top: 50px; 
+            line-height: 1.6; 
+            text-align: center; /* Центрирование */
+        }
+
+        /* НОВОЕ: Стиль для ссылки разработчика */
+        .dev-link {
+            color: white;
+            font-weight: 600; /* Жирный шрифт */
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+        .dev-link:hover {
+            opacity: 0.7;
+        }
 
         /* --- ДОПОЛНИТЕЛЬНЫЕ ЭЛЕМЕНТЫ --- */
         .overlay-menu {
@@ -407,47 +424,46 @@
         }
         .lightbox.active { opacity: 1; pointer-events: all; }
         
+        /* ВАЖНО: Z-Index настройки, чтобы кнопки были поверх картинок */
         .lightbox img { 
             max-width: 90%; 
             max-height: 90%; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
             border-radius: 2px;
             position: relative;
-            z-index: 1; 
+            z-index: 1; /* Картинка ниже кнопок */
         }
         
         .close-btn { 
             position: absolute; top: 30px; right: 40px; 
             font-size: 40px; color: white; cursor: pointer; 
             opacity: 0.7; transition: 0.3s; 
-            z-index: 100; 
+            z-index: 100; /* Кнопка закрытия поверх всего */
         }
         .close-btn:hover { opacity: 1; transform: rotate(90deg); }
         
         .nav-btn {
             cursor: pointer; position: absolute; top: 50%; width: auto; padding: 16px; margin-top: -50px;
             color: white; font-weight: bold; font-size: 40px; transition: 0.3s ease; user-select: none; opacity: 0.5;
-            z-index: 100;
+            z-index: 100; /* Кнопки навигации поверх картинки */
         }
         .nav-btn:hover { opacity: 1; background-color: rgba(0,0,0,0.8); }
         .next { right: 0; border-radius: 3px 0 0 3px; }
         .prev { left: 0; border-radius: 0 3px 3px 0; }
 
-        /* --- ВАЖНЫЕ ПРАВКИ ДЛЯ МОБИЛЬНОЙ ВЕРСИИ --- */
+        /* --- МОБИЛЬНАЯ АДАПТАЦИЯ --- */
         @media (max-width: 768px) {
-            /* 1. Отключаем "прилипание" прокрутки, так как это ломает просмотр длинного контента */
             html { scroll-snap-type: none; }
 
-            /* 2. Разрешаем секциям растягиваться по высоте контента */
             section {
                 height: auto !important;
                 min-height: 100vh;
-                overflow: visible !important; /* Важно: чтобы контент не обрезался */
+                overflow: visible !important;
             }
 
             .about { 
-                display: block; /* Убираем flex центрирование по вертикали, чтобы верх не обрезался */
-                padding: 100px 20px 40px 20px; /* Отступ сверху, чтобы текст не заезжал под меню */
+                display: block; 
+                padding: 100px 20px 40px 20px; 
             }
 
             .about-main { margin-bottom: 40px; }
@@ -464,12 +480,11 @@
                 padding: 80px 20px;
             }
 
-            /* 3. Исправление сетки портфолио для мобильных: показываем ВСЕ элементы */
             .grid {
                 display: grid;
-                grid-template-columns: 1fr 1fr; /* 2 колонки */
-                grid-template-rows: auto; /* Автоматическая высота */
-                grid-auto-rows: 200px; /* Каждый следующий ряд тоже 200px */
+                grid-template-columns: 1fr 1fr; 
+                grid-template-rows: auto;
+                grid-auto-rows: 200px; 
                 height: auto;
                 gap: 10px;
             }
@@ -698,7 +713,7 @@
             </div>
             
             <div class="copyright">
-                © 2025 by AL☰X<br>
+                © 2025 <a href="https://by-alex.ru/" target="_blank" class="dev-link">by AL☰X</a><br>
                 Все права защищены.
             </div>
         </div>
@@ -733,7 +748,7 @@
                 lightbox.classList.add('active');
             });
 
-            // --- НОВОЕ: Эффект перелистывания при наведении (для ПК) ---
+            // --- Эффект перелистывания при наведении (для ПК) ---
             let hoverInterval;
             let hoverIndex = 0;
             const imgElement = card.querySelector('.card-img');
