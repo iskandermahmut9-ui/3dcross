@@ -10,13 +10,9 @@
     <meta name="keywords" content="3d визуализация, рендер интерьера, архитектурная визуализация, 3d cross, визуализатор, cgi studio">
 
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    
     <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
-    
     <link rel="shortcut icon" href="favicon.ico" />
-    
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
-    
     <link rel="manifest" href="site.webmanifest" />
     
     <meta name="apple-mobile-web-app-title" content="3D CROSS" />
@@ -335,6 +331,72 @@
         .video-caption { margin-top: 30px; text-align: center; }
         .video-caption h3 { margin: 0; font-weight: 400; font-size: 1.2rem; letter-spacing: 2px; }
         .video-caption p { color: #666; font-size: 0.9rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;}
+
+        /* --- БЛОК ИНСТРУМЕНТОВ (NEW) --- */
+        .tools-section {
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 80px 40px;
+            box-sizing: border-box;
+            border-top: 1px solid #333; /* Разделитель сверху */
+        }
+
+        .tools-container { width: 100%; max-width: 1400px; margin: 0 auto; }
+        
+        .tools-header h2 {
+            font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px;
+            color: #555; margin-bottom: 40px; text-align: left;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            width: 100%;
+        }
+
+        .tool-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: #1a1a1a;
+            height: 250px;
+            padding: 30px;
+            box-sizing: border-box;
+            text-decoration: none;
+            border: 1px solid transparent;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tool-card:hover {
+            border-color: #fff;
+            background: #222;
+            transform: translateY(-5px);
+        }
+
+        /* Стиль для активной кнопки (первой) */
+        .tool-card.active {
+            border-color: #444;
+            background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
+        }
+        .tool-card.active:hover { border-color: #fff; }
+
+        .tool-number { font-size: 0.9rem; color: #555; margin-bottom: 20px; }
+        .tool-title { font-size: 1.5rem; font-weight: 400; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+        .tool-desc { font-size: 0.9rem; color: #888; margin-top: auto; }
+        
+        /* Стиль для неактивных кнопок */
+        .tool-card.disabled { opacity: 0.5; cursor: default; }
+        .tool-card.disabled:hover { border-color: transparent; transform: none; background: #1a1a1a; }
+
+        @media (max-width: 768px) {
+            .tools-grid { grid-template-columns: 1fr; gap: 20px; }
+            .tool-card { height: 180px; }
+        }
 
         /* --- 7. ПРАЙС --- */
         .pricing {
@@ -665,6 +727,41 @@
     <h3>Kemerovo. Children's room</h3>
     <p>3D Visualization & AI Animation</p>
 </div>
+    </section>
+
+    <section class="tools-section">
+        <div class="tools-container">
+            <div class="tools-header">
+                <h2>В помощь визуализаторам и дизайнерам</h2>
+            </div>
+            <div class="tools-grid">
+                
+                <a href="mimi.html" class="tool-card active">
+                    <span class="tool-number">01</span>
+                    <span class="tool-title">Material<br>Lab</span>
+                    <span class="tool-desc">AI генератор бесшовных PBR текстур из фото</span>
+                </a>
+
+                <a href="panorama.html" class="tool-card active">
+                    <span class="tool-number">02</span>
+                    <span class="tool-title">3D<br>Panorama</span>
+                    <span class="tool-desc">Интерактивный просмотр 360° рендеров</span>
+                </a>
+
+                <div class="tool-card disabled">
+                    <span class="tool-number">03</span>
+                    <span class="tool-title">Soon</span>
+                    <span class="tool-desc">Раздел в разработке</span>
+                </div>
+
+                <div class="tool-card disabled">
+                    <span class="tool-number">04</span>
+                    <span class="tool-title">Soon</span>
+                    <span class="tool-desc">Раздел в разработке</span>
+                </div>
+
+            </div>
+        </div>
     </section>
 
     <section class="pricing">
