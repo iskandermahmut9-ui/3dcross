@@ -332,7 +332,7 @@
         .video-caption h3 { margin: 0; font-weight: 400; font-size: 1.2rem; letter-spacing: 2px; }
         .video-caption p { color: #666; font-size: 0.9rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;}
 
-        /* --- БЛОК ИНСТРУМЕНТОВ (NEW) --- */
+        /* --- БЛОК ИНСТРУМЕНТОВ --- */
         .tools-section {
             min-height: 60vh;
             display: flex;
@@ -378,7 +378,7 @@
             transform: translateY(-5px);
         }
 
-        /* Стиль для активной кнопки (первой) */
+        /* Стиль для активной кнопки */
         .tool-card.active {
             border-color: #444;
             background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
@@ -571,6 +571,7 @@
             <a href="#" onclick="toggleMenu(); scrollToSection('.portfolio')">Работы</a>
             <a href="#" onclick="toggleMenu(); scrollToSection('.about')">Обо мне</a>
             <a href="#" onclick="toggleMenu(); scrollToSection('.pricing')">Стоимость</a>
+            <a href="#" onclick="toggleMenu(); scrollToSection('.tools-section')">AI помощники</a>
             <a href="javascript:void(0)" onclick="toggleMenu(); scrollToSection('#contact')">Связь</a>
         </div>
     </div>
@@ -748,11 +749,11 @@
                     <span class="tool-desc">Интерактивный просмотр 360° рендеров</span>
                 </a>
 
-                <div class="tool-card disabled">
+                <a href="render.html" class="tool-card active">
                     <span class="tool-number">03</span>
-                    <span class="tool-title">Soon</span>
-                    <span class="tool-desc">Раздел в разработке</span>
-                </div>
+                    <span class="tool-title">AI<br>render</span>
+                    <span class="tool-desc">Рендер и стилизация интерьера по эскизам и наброскам</span>
+                </a>
 
                 <div class="tool-card disabled">
                     <span class="tool-number">04</span>
