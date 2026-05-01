@@ -19,7 +19,7 @@
     <meta name="theme-color" content="#0a0a0a">
     <meta property="og:title" content="3D CROSS | Архитектурная визуализация">
     <meta property="og:description" content="Превращаю чертежи в фотореалистичные образы. Смотреть портфолио ->">
-    <meta property="og:image" content="https://3dcross.ru/og-image.jpg">
+    <meta property="og:image" content="assets/img/ui/og-image.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:type" content="website">
@@ -29,539 +29,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600&display=swap" rel="stylesheet">
 
-    <style>
-        /* --- 1. ГЛОБАЛЬНЫЕ НАСТРОЙКИ --- */
-        html {
-            scroll-snap-type: y mandatory;
-            scroll-behavior: smooth;
-            height: 100%;
-            overflow-y: scroll;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #0a0a0a;
-            color: #ffffff;
-            font-family: 'Manrope', sans-serif;
-            overflow-x: hidden;
-            height: 100%;
-        }
-
-        a { text-decoration: none; color: white; transition: 0.3s; }
-
-        section {
-            scroll-snap-align: start;
-            position: relative;
-            width: 100%;
-            background-color: #0a0a0a;
-            overflow: hidden; 
-        }
-
-        /* --- 2. HEADER (МЕНЮ) --- */
-        header {
-            position: fixed;
-            top: 0; left: 0; width: 100%;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 100;
-            box-sizing: border-box;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-        }
-
-        .logo { 
-            font-weight: 600; 
-            font-size: 1.8rem; 
-            letter-spacing: 2px; 
-            text-transform: uppercase; 
-            cursor: pointer; 
-        }
-
-        .menu-btn { 
-            cursor: pointer; 
-            font-size: 2rem; 
-        }
-
-        /* --- 3. ГЛАВНЫЙ ЭКРАН (HERO) --- */
-        .hero {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-
-        .overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        .slideshow {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0;
-        }
-
-        .slide-img {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover;
-            opacity: 0; 
-            transform: scale(1);
-            animation: imageAnimation 12s linear infinite; 
-            will-change: transform, opacity;
-        }
-
-        .slide-img:nth-child(1) { animation-delay: 0s; }
-        .slide-img:nth-child(2) { animation-delay: 3s; }
-        .slide-img:nth-child(3) { animation-delay: 6s; }
-        .slide-img:nth-child(4) { animation-delay: 9s; }
-
-        @keyframes imageAnimation { 
-            0% { opacity: 0; transform: scale(1); animation-timing-function: ease-in; }
-            8% { opacity: 1; transform: scale(1.05); }
-            25% { opacity: 1; transform: scale(1.2); }
-            33% { opacity: 0; transform: scale(1.25); }
-            100% { opacity: 0; }
-        }
-
-        .hero-content {
-            z-index: 3;
-            position: relative;
-            padding: 0 20px;
-            opacity: 0;
-            animation: contentFadeIn 1.5s ease-out forwards 0.5s;
-        }
-
-        @keyframes contentFadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        h1 {
-            font-size: clamp(2.5rem, 6vw, 6rem);
-            font-weight: 300;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin: 0;
-            text-shadow: 0 2px 20px rgba(0,0,0,0.7);
-        }
-
-        .subtitle {
-            margin-top: 20px;
-            font-size: clamp(0.9rem, 1.5vw, 1.2rem);
-            letter-spacing: 0.3em;
-            text-transform: uppercase;
-            color: #e0e0e0;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.7);
-        }
-
-        /* --- 4. СЕКЦИЯ ОБО МНЕ --- */
-        .about {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 20px;
-            max-width: 1400px;
-            margin: 0 auto;
-            box-sizing: border-box;
-            z-index: 10;
-        }
-
-        .about-main {
-            text-align: center;
-            max-width: 900px;
-            margin: 0 auto 60px auto;
-        }
-
-        .about-main h2 {
-            font-size: clamp(2rem, 4vw, 3.5rem);
-            font-weight: 300;
-            margin-bottom: 40px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .main-desc {
-            font-size: 1.2rem;
-            line-height: 1.6;
-            color: #ccc;
-        }
-
-        .benefits-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 60px;
-            border-top: 1px solid #333;
-            padding-top: 60px;
-        }
-
-        .benefit-card h3 {
-            font-size: 1.5rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 20px;
-            color: #fff;
-            font-weight: 600;
-        }
-
-        .benefit-card p {
-            font-size: 1.2rem;
-            line-height: 1.6;
-            color: #aaa;
-        }
-
-        /* --- 5. ПОРТФОЛИО --- */
-        .portfolio {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding: 80px 40px 20px 40px;
-            box-sizing: border-box;
-        }
-
-        .portfolio h2 {
-            flex: 0 0 auto;
-            margin: 0 0 15px 0;
-            font-size: 1.2rem;
-            font-weight: 300;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: #fff;
-            text-align: center;
-        }
-
-        .grid {
-            flex: 1;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-            width: 100%;
-            height: 100%;
-            min-height: 0;
-        }
-
-        .project-card {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background: #1a1a1a;
-            overflow: hidden;
-            cursor: pointer;
-        }
-
-        .card-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
-            opacity: 0.8;
-            transition: opacity 0.3s ease, transform 0.5s ease;
-            display: block;
-        }
-
-        .project-card:hover .card-img { opacity: 1; transform: scale(1.05); }
-        .project-card:hover .card-info { opacity: 1; transform: translateY(0); }
-
-        .card-info {
-            position: absolute; bottom: 0; left: 0; width: 100%;
-            padding: 20px;
-            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-            opacity: 0;
-            transform: translateY(10px);
-            transition: all 0.3s ease;
-            pointer-events: none;
-        }
-        .card-info h3 { font-size: 1rem; margin: 0; color: white; font-weight: 500; }
-        .card-info p { font-size: 0.8rem; margin: 5px 0 0 0; color: #ccc; }
-
-        /* --- 6. ВИДЕО --- */
-        .video-showcase {
-            min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 40px 20px;
-            box-sizing: border-box;
-        }
-
-        .video-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 1200px;
-            aspect-ratio: 16 / 9;
-            background: #000;
-            cursor: pointer;
-            overflow: hidden;
-        }
-
-        .video-wrapper video {
-            width: 100%; height: 100%; object-fit: cover; display: block;
-        }
-
-        .play-btn-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.3);
-            transition: 0.3s;
-        }
-        .video-wrapper:hover .play-btn-overlay { background: rgba(0,0,0,0.1); }
-
-        .play-icon {
-            width: 80px; height: 80px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 30px; color: white; padding-left: 5px;
-            transition: transform 0.3s ease;
-        }
-        .video-wrapper:hover .play-icon { transform: scale(1.1); background: rgba(255, 255, 255, 0.2); }
-
-        .video-caption { margin-top: 30px; text-align: center; }
-        .video-caption h3 { margin: 0; font-weight: 400; font-size: 1.2rem; letter-spacing: 2px; }
-        .video-caption p { color: #666; font-size: 0.9rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;}
-
-        /* --- БЛОК ИНСТРУМЕНТОВ --- */
-        .tools-section {
-            min-height: 60vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 80px 40px;
-            box-sizing: border-box;
-            border-top: 1px solid #333; /* Разделитель сверху */
-        }
-
-        .tools-container { width: 100%; max-width: 1400px; margin: 0 auto; }
-        
-        .tools-header h2 {
-            font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px;
-            color: #555; margin-bottom: 40px; text-align: left;
-        }
-
-        .tools-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            width: 100%;
-        }
-
-        .tool-card {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            background: #1a1a1a;
-            height: 250px;
-            padding: 30px;
-            box-sizing: border-box;
-            text-decoration: none;
-            border: 1px solid transparent;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .tool-card:hover {
-            border-color: #fff;
-            background: #222;
-            transform: translateY(-5px);
-        }
-
-        /* Стиль для активной кнопки */
-        .tool-card.active {
-            border-color: #444;
-            background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
-        }
-        .tool-card.active:hover { border-color: #fff; }
-
-        .tool-number { font-size: 0.9rem; color: #555; margin-bottom: 20px; }
-        .tool-title { font-size: 1.5rem; font-weight: 400; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
-        .tool-desc { font-size: 0.9rem; color: #888; margin-top: auto; }
-        
-        /* Стиль для неактивных кнопок */
-        .tool-card.disabled { opacity: 0.5; cursor: default; }
-        .tool-card.disabled:hover { border-color: transparent; transform: none; background: #1a1a1a; }
-
-        @media (max-width: 768px) {
-            .tools-grid { grid-template-columns: 1fr; gap: 20px; }
-            .tool-card { height: 180px; }
-        }
-
-        /* --- 7. ПРАЙС --- */
-        .pricing {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 80px 40px;
-            box-sizing: border-box;
-        }
-
-        .pricing-container { width: 100%; max-width: 1400px; }
-        
-        .pricing-header h2 {
-            font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px;
-            color: #555; margin-bottom: 60px; text-align: left;
-        }
-
-        .pricing-grid {
-            display: flex; justify-content: space-between; gap: 40px; width: 100%;
-        }
-
-        .price-item {
-            flex: 1;
-            border-left: 1px solid #333;
-            padding-left: 30px;
-            display: flex; flex-direction: column; justify-content: space-between;
-            height: 200px; transition: 0.3s ease; cursor: default;
-        }
-        .price-item:hover { border-left-color: #fff; }
-
-        .price-top { display: flex; flex-direction: column; gap: 5px; }
-        .p-name { font-size: 1.2rem; font-weight: 600; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
-        .p-unit { font-size: 0.9rem; color: #888; }
-        .price-amount { font-size: 4rem; font-weight: 300; color: #fff; line-height: 1; }
-        .p-prefix { font-size: 1.5rem; vertical-align: super; margin-right: 5px; color: #555; }
-        .p-curr { font-size: 2rem; color: #555; }
-
-        /* --- 8. ФУТЕР --- */
-        footer {
-            padding: 100px 40px;
-            background-color: #0a0a0a;
-            scroll-snap-align: start;
-        }
-        .footer-label { font-size: 0.8rem; color: #555; letter-spacing: 2px; margin-bottom: 20px; }
-        .big-link {
-            display: block; font-size: clamp(2rem, 5vw, 5rem);
-            font-weight: 600; color: #fff; text-transform: uppercase;
-            border-bottom: 2px solid transparent; transition: 0.3s; margin-bottom: 60px;
-        }
-        .big-link:hover { opacity: 0.7; border-bottom: 2px solid #fff; }
-        
-        .socials { display: flex; gap: 30px; margin-bottom: 40px; flex-wrap: wrap; }
-        .socials a {
-            font-size: 1rem; text-transform: uppercase; color: #aaa;
-            border: 1px solid #333; padding: 10px 20px; border-radius: 50px;
-        }
-        .socials a:hover { background: #fff; color: #000; border-color: #fff; }
-        
-        .copyright { 
-            font-size: 0.8rem; 
-            color: white; 
-            margin-top: 50px; 
-            line-height: 1.6; 
-            text-align: center;
-        }
-
-        .dev-link {
-            color: white;
-            font-weight: 600;
-            text-decoration: none;
-            transition: opacity 0.3s;
-        }
-        .dev-link:hover { opacity: 0.7; }
-
-        /* --- ДОПОЛНИТЕЛЬНЫЕ ЭЛЕМЕНТЫ --- */
-        .overlay-menu {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 200;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
-        }
-        .overlay-menu.active { opacity: 1; pointer-events: all; }
-        .menu-links { display: flex; flex-direction: column; text-align: center; gap: 30px; }
-        .menu-links a { font-size: 3rem; font-weight: 300; text-transform: uppercase; }
-        .close-menu { position: absolute; top: 30px; right: 40px; font-size: 50px; cursor: pointer; color: white; }
-
-        .lightbox {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 10000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
-        }
-        .lightbox.active { opacity: 1; pointer-events: all; }
-        
-        .lightbox img { 
-            max-width: 90%; 
-            max-height: 90%; 
-            box-shadow: 0 0 50px rgba(0,0,0,0.5); 
-            border-radius: 2px;
-            position: relative;
-            z-index: 1; 
-        }
-        
-        .close-btn { 
-            position: absolute; top: 30px; right: 40px; 
-            font-size: 40px; color: white; cursor: pointer; 
-            opacity: 0.7; transition: 0.3s; 
-            z-index: 100; 
-        }
-        .close-btn:hover { opacity: 1; transform: rotate(90deg); }
-        
-        .nav-btn {
-            cursor: pointer; position: absolute; top: 50%; width: auto; padding: 16px; margin-top: -50px;
-            color: white; font-weight: bold; font-size: 40px; transition: 0.3s ease; user-select: none; opacity: 0.5;
-            z-index: 100;
-        }
-        .nav-btn:hover { opacity: 1; background-color: rgba(0,0,0,0.8); }
-        .next { right: 0; border-radius: 3px 0 0 3px; }
-        .prev { left: 0; border-radius: 0 3px 3px 0; }
-
-        /* --- МОБИЛЬНАЯ АДАПТАЦИЯ --- */
-        @media (max-width: 768px) {
-            html { scroll-snap-type: none; }
-
-            section {
-                height: auto !important;
-                min-height: 100vh;
-                overflow: visible !important;
-            }
-
-            .about { 
-                display: block; 
-                padding: 100px 20px 40px 20px; 
-            }
-
-            .about-main { margin-bottom: 40px; }
-            
-            .benefits-grid { 
-                display: flex; 
-                flex-direction: column; 
-                gap: 40px; 
-            }
-
-            .portfolio {
-                height: auto !important;
-                display: block;
-                padding: 80px 20px;
-            }
-
-            .grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr; 
-                grid-template-rows: auto;
-                grid-auto-rows: 200px; 
-                height: auto;
-                gap: 10px;
-            }
-            
-            .pricing-grid { flex-direction: column; gap: 60px; }
-            .price-item { border-left: none; border-top: 1px solid #333; padding-left: 0; padding-top: 20px; height: auto; }
-            h1 { font-size: 2.5rem; }
-            .menu-links a { font-size: 2rem; }
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
@@ -573,6 +41,9 @@
             <a href="#" onclick="toggleMenu(); scrollToSection('.pricing')">Стоимость</a>
             <a href="#" onclick="toggleMenu(); scrollToSection('.tools-section')">AI помощники</a>
             <a href="javascript:void(0)" onclick="toggleMenu(); scrollToSection('#contact')">Связь</a>
+            
+            <!-- 🟢 Ссылка на твой новый дашборд -->
+            <a href="/hub/" style="color: #00ff88; margin-top: 15px;">Личный кабинет</a>
         </div>
     </div>
 
@@ -584,10 +55,10 @@
     <section class="hero">
         <div class="overlay"></div>
         <div class="slideshow">
-            <img src="slide1.jpg" class="slide-img" alt="Визуализация интерьера студии">
-            <img src="slide2.jpg" class="slide-img" alt="Визуализация интерьера гостиной">
-            <img src="slide3.jpg" class="slide-img" alt="Дизайн-проект и визуализация студии">
-            <img src="slide4.jpg" class="slide-img" alt="Дизайн-проект и 3D визуализация">
+            <img src="assets/img/hero/slide1.jpg" class="slide-img" alt="Визуализация интерьера студии">
+            <img src="assets/img/hero/slide2.jpg" class="slide-img" alt="Визуализация интерьера гостиной">
+            <img src="assets/img/hero/slide3.jpg" class="slide-img" alt="Дизайн-проект и визуализация студии">
+            <img src="assets/img/hero/slide4.jpg" class="slide-img" alt="Дизайн-проект и 3D визуализация">
         </div>
         <div class="hero-content">
             <h1>формы, рождаются<br>из вдохновения</h1>
@@ -620,87 +91,87 @@
     <section class="portfolio">
         <h2>Работы</h2>
         <div class="grid">
-            <div class="project-card" data-images="p1.jpg, p2.jpg, p3.jpg, p4.jpg">
-                <img src="p1.jpg" class="card-img" alt="3D визуализация интерьера гостиной в Art Deco, старый фонд">
+            <div class="project-card" data-images="assets/img/portfolio/p1.jpg, assets/img/portfolio/p2.jpg, assets/img/portfolio/p3.jpg, assets/img/portfolio/p4.jpg">
+                <img src="assets/img/portfolio/p1.jpg" class="card-img" alt="3D визуализация интерьера гостиной в Art Deco, старый фонд">
                 <div class="card-info">
                     <h3>Moscow. Old fund.</h3>
                     <p>Livingroom / 2025</p>
                 </div>
             </div>
-            <div class="project-card" data-images="b1.jpg, b2.jpg, b3.jpg, b4.jpg, b5.jpg, b6.jpg">
-                <img src="b1.jpg" class="card-img" alt="3D визуализация интерьера гостиной в современном стиле, ЖК Freedom Москва">
+            <div class="project-card" data-images="assets/img/portfolio/b1.jpg, assets/img/portfolio/b2.jpg, assets/img/portfolio/b3.jpg, assets/img/portfolio/b4.jpg, assets/img/portfolio/b5.jpg, assets/img/portfolio/b6.jpg">
+                <img src="assets/img/portfolio/b1.jpg" class="card-img" alt="3D визуализация интерьера гостиной в современном стиле, ЖК Freedom Москва">
                 <div class="card-info">
                     <h3>Moscow Freedom</h3>
                     <p>Livingroom</p>
                 </div>
             </div>
-            <div class="project-card" data-images="n1.jpg, n2.jpg, n3.jpg, n4.jpg">
-                <img src="n1.jpg" class="card-img" alt="3D визуализация детской комнаты в светлых тонах, Нью-Йорк">
+            <div class="project-card" data-images="assets/img/portfolio/n1.jpg, assets/img/portfolio/n2.jpg, assets/img/portfolio/n3.jpg, assets/img/portfolio/n4.jpg">
+                <img src="assets/img/portfolio/n1.jpg" class="card-img" alt="3D визуализация детской комнаты в светлых тонах, Нью-Йорк">
                 <div class="card-info">
                     <h3>New York. 9 Avenue</h3>
                     <p>Children's room</p>
                 </div>
             </div>
-            <div class="project-card" data-images="k1.jpg, k2.jpg, k3.jpg, k4.jpg, k5.jpg">
-                <img src="k1.jpg" class="card-img" alt="3D визуализация интерьера гостиной в современном стиле Moscow Kutuzovskiy 23">
+            <div class="project-card" data-images="assets/img/portfolio/k1.jpg, assets/img/portfolio/k2.jpg, assets/img/portfolio/k3.jpg, assets/img/portfolio/k4.jpg, assets/img/portfolio/k5.jpg">
+                <img src="assets/img/portfolio/k1.jpg" class="card-img" alt="3D визуализация интерьера гостиной в современном стиле Moscow Kutuzovskiy 23">
                 <div class="card-info">
                     <h3>Moscow Kutuzovskiy 23</h3>
                     <p>Livingroom</p>
                 </div>
             </div>
 
-            <div class="project-card" data-images="s1.jpg, s2.jpg, s3.jpg, s4.jpg">
-                <img src="s1.jpg" class="card-img" alt="Дизайн-проект и рендер салона красоты, зона ожидания">
+            <div class="project-card" data-images="assets/img/portfolio/s1.jpg, assets/img/portfolio/s2.jpg, assets/img/portfolio/s3.jpg, assets/img/portfolio/s4.jpg">
+                <img src="assets/img/portfolio/s1.jpg" class="card-img" alt="Дизайн-проект и рендер салона красоты, зона ожидания">
                 <div class="card-info">
                     <h3>Moscow</h3>
                     <p>Beauty salon</p>
                 </div>
             </div>
-            <div class="project-card" data-images="m1.jpg, m2.jpg, m3.jpg">
-                <img src="m1.jpg" class="card-img" alt="Дизайн-проект и рендер салона красоты, Новосибирск">
+            <div class="project-card" data-images="assets/img/portfolio/m1.jpg, assets/img/portfolio/m2.jpg, assets/img/portfolio/m3.jpg">
+                <img src="assets/img/portfolio/m1.jpg" class="card-img" alt="Дизайн-проект и рендер салона красоты, Новосибирск">
                 <div class="card-info">
                     <h3>Novosibirsk</h3>
                     <p>Beauty salon</p>
                 </div>
             </div>
-            <div class="project-card" data-images="a1.jpg, a2.jpg, a3.jpg, a4.jpg">
-                <img src="a1.jpg" class="card-img" alt="3D визуализация интерьера мебельного салона Авангард">
+            <div class="project-card" data-images="assets/img/portfolio/a1.jpg, assets/img/portfolio/a2.jpg, assets/img/portfolio/a3.jpg, assets/img/portfolio/a4.jpg">
+                <img src="assets/img/portfolio/a1.jpg" class="card-img" alt="3D визуализация интерьера мебельного салона Авангард">
                 <div class="card-info">
                     <h3>Moscow. Avantgarde</h3>
                     <p>Furniture salon</p>
                 </div>
             </div>
-            <div class="project-card" data-images="g1.jpg, g2.jpg, g3.jpg">
-                <img src="g1.jpg" class="card-img" alt="3D визуализация интерьера входной группы GloraX">
+            <div class="project-card" data-images="assets/img/portfolio/g1.jpg, assets/img/portfolio/g2.jpg, assets/img/portfolio/g3.jpg">
+                <img src="assets/img/portfolio/g1.jpg" class="card-img" alt="3D визуализация интерьера входной группы GloraX">
                 <div class="card-info">
                     <h3>Moscow. GloraX</h3>
                     <p>Entrance</p>
                 </div>
             </div>
 
-            <div class="project-card" data-images="y1.jpg, y2.jpg, y3.jpg, y4.jpg">
-                <img src="y1.jpg" class="card-img" alt="Визуализация интерьера гостиной в современном стиле, Нью-Йорк">
+            <div class="project-card" data-images="assets/img/portfolio/y1.jpg, assets/img/portfolio/y2.jpg, assets/img/portfolio/y3.jpg, assets/img/portfolio/y4.jpg">
+                <img src="assets/img/portfolio/y1.jpg" class="card-img" alt="Визуализация интерьера гостиной в современном стиле, Нью-Йорк">
                 <div class="card-info">
                     <h3>New York. 9 Avenue</h3>
                     <p>Livingroom</p>
                 </div>
             </div>
-            <div class="project-card" data-images="f1.jpg, f2.jpg, f3.jpg, f4.jpg">
-                <img src="f1.jpg" class="card-img" alt="Дизайн-проект и визуализация кухни в классическом стиле">
+            <div class="project-card" data-images="assets/img/portfolio/f1.jpg, assets/img/portfolio/f2.jpg, assets/img/portfolio/f3.jpg, assets/img/portfolio/f4.jpg">
+                <img src="assets/img/portfolio/f1.jpg" class="card-img" alt="Дизайн-проект и визуализация кухни в классическом стиле">
                 <div class="card-info">
                     <h3>Moscow</h3>
                     <p>Kitchen</p>
                 </div>
             </div>
-            <div class="project-card" data-images="slide1.jpg, slide2.jpg, slide3.jpg, slide4.jpg">
-                <img src="slide1.jpg" class="card-img" alt="Дизайн-проект и визуализация студии, Сочи">
+            <div class="project-card" data-images="assets/img/hero/slide1.jpg, assets/img/hero/slide2.jpg, assets/img/hero/slide3.jpg, assets/img/hero/slide4.jpg">
+                <img src="assets/img/hero/slide1.jpg" class="card-img" alt="Дизайн-проект и визуализация студии, Сочи">
                 <div class="card-info">
                     <h3>Sochi</h3>
                     <p>Kitchen</p>
                 </div>
             </div>
-            <div class="project-card" data-images="o1.jpg, o2.jpg, o3.jpg">
-                <img src="o1.jpg" class="card-img" alt="Визуализация интерьера спальни в современном стиле, Кемерово">
+            <div class="project-card" data-images="assets/img/portfolio/o1.jpg, assets/img/portfolio/o2.jpg, assets/img/portfolio/o3.jpg">
+                <img src="assets/img/portfolio/o1.jpg" class="card-img" alt="Визуализация интерьера спальни в современном стиле, Кемерово">
                 <div class="card-info">
                     <h3>Kemerovo</h3>
                     <p>Bedroom</p>
@@ -711,23 +182,23 @@
 
     <section class="video-showcase">
        <div class="video-wrapper">
-    <video 
-        id="videoPlayer" 
-        src="children-room-3d-animation.mp4" 
-        poster="children-room-render-cover.jpg" 
-        title="3D анимация интерьера детской комнаты, Кемерово. AI Animation Showreel." 
-        playsinline>
-    </video>
-    
-    <div class="play-btn-overlay" onclick="playVideo()">
-        <div class="play-icon">▶</div>
-    </div>
-</div>
+            <video 
+                id="videoPlayer" 
+                src="assets/media/children-room-3d-animation.mp4" 
+                poster="assets/img/portfolio/children-room-render-cover.jpg" 
+                title="3D анимация интерьера детской комнаты, Кемерово. AI Animation Showreel." 
+                playsinline>
+            </video>
+            
+            <div class="play-btn-overlay" onclick="playVideo()">
+                <div class="play-icon">▶</div>
+            </div>
+        </div>
 
-<div class="video-caption">
-    <h3>Kemerovo. Children's room</h3>
-    <p>3D Visualization & AI Animation</p>
-</div>
+        <div class="video-caption">
+            <h3>Kemerovo. Children's room</h3>
+            <p>3D Visualization & AI Animation</p>
+        </div>
     </section>
 
     <section class="tools-section">
@@ -737,25 +208,25 @@
             </div>
             <div class="tools-grid">
                 
-                <a href="mimi.html" class="tool-card active">
+                <a href="tools/mimi.html" class="tool-card active">
                     <span class="tool-number">01</span>
                     <span class="tool-title">Material<br>Lab</span>
                     <span class="tool-desc">AI генератор бесшовных PBR текстур из фото</span>
                 </a>
 
-                <a href="panorama.html" class="tool-card active">
+                <a href="tools/panorama.html" class="tool-card active">
                     <span class="tool-number">02</span>
                     <span class="tool-title">3D<br>Panorama</span>
                     <span class="tool-desc">Интерактивный просмотр 360° рендеров</span>
                 </a>
 
-                <a href="render.html" class="tool-card active">
+                <a href="tools/render.html" class="tool-card active">
                     <span class="tool-number">03</span>
                     <span class="tool-title">AI<br>render</span>
                     <span class="tool-desc">Рендер и стилизация интерьера по эскизам и наброскам</span>
                 </a>
 
-                <a href="planer.html" class="tool-card active">
+                <a href="tools/planer.html" class="tool-card active">
                     <span class="tool-number">04</span>
                     <span class="tool-title">AI<br>planer</span>
                     <span class="tool-desc">Построение плана помещения по эскизу</span>
@@ -816,7 +287,7 @@
             </div>
             
             <div class="copyright">
-                © 2025 <a href="https://by-alex.ru/" target="_blank" class="dev-link">by AL☰X</a><br>
+                © 2026 <a href="https://by-alex.ru/" target="_blank" class="dev-link">by AL☰X</a><br>
                 Все права защищены.
             </div>
         </div>
@@ -829,107 +300,6 @@
         <div class="nav-btn next" onclick="changeSlide(1, event)">&#10095;</div>
     </div>
 
-    <script>
-        // --- 1. ЛОГИКА ГАЛЕРЕИ (LIGHTBOX) ---
-        let currentImages = []; 
-        let currentIndex = 0;   
-        const lightbox = document.getElementById('lightbox');
-        const lightboxImg = document.getElementById('lightbox-img');
-        const cards = document.querySelectorAll('.project-card');
-        
-        cards.forEach(card => {
-            // Клик для открытия лайтбокса
-            card.addEventListener('click', function() {
-                const imagesRaw = this.getAttribute('data-images');
-                if (!imagesRaw) {
-                    currentImages = [this.querySelector('img').src];
-                } else {
-                    currentImages = imagesRaw.split(',').map(img => img.trim());
-                }
-                currentIndex = 0;
-                updateImage();
-                lightbox.classList.add('active');
-            });
-
-            // --- Эффект перелистывания при наведении (для ПК) ---
-            let hoverInterval;
-            let hoverIndex = 0;
-            const imgElement = card.querySelector('.card-img');
-            const originalSrc = imgElement.src;
-            const imagesRaw = card.getAttribute('data-images');
-            
-            if (imagesRaw) {
-                const hoverImages = imagesRaw.split(',').map(img => img.trim());
-                
-                card.addEventListener('mouseenter', () => {
-                    // Если экран шире 768px (ПК), включаем слайдшоу
-                    if (window.innerWidth > 768) {
-                        hoverIndex = 0;
-                        hoverInterval = setInterval(() => {
-                            hoverIndex = (hoverIndex + 1) % hoverImages.length;
-                            imgElement.src = hoverImages[hoverIndex];
-                        }, 1000); // Меняем картинку каждую секунду
-                    }
-                });
-
-                card.addEventListener('mouseleave', () => {
-                    if (hoverInterval) {
-                        clearInterval(hoverInterval);
-                        imgElement.src = originalSrc; // Возвращаем обложку
-                    }
-                });
-            }
-        });
-
-        function changeSlide(direction, event) {
-            if(event) event.stopPropagation(); 
-            currentIndex += direction;
-            if (currentIndex >= currentImages.length) currentIndex = 0;
-            else if (currentIndex < 0) currentIndex = currentImages.length - 1;
-            updateImage();
-        }
-
-        function updateImage() { lightboxImg.src = currentImages[currentIndex]; }
-
-        function closeLightbox(event) {
-            if (!event || event.target === lightbox || event.target.classList.contains('close-btn')) {
-                lightbox.classList.remove('active');
-            }
-        }
-        
-        document.addEventListener('keydown', function(e) {
-            if (!lightbox.classList.contains('active')) return;
-            if (e.key === 'ArrowLeft') changeSlide(-1);
-            if (e.key === 'ArrowRight') changeSlide(1);
-            if (e.key === 'Escape') closeLightbox();
-        });
-
-        // --- 2. ЛОГИКА МЕНЮ ---
-        function toggleMenu() {
-            const menu = document.getElementById('overlay-menu');
-            menu.classList.toggle('active');
-        }
-
-        // --- 3. СКРОЛЛ К СЕКЦИЯМ ---
-        function scrollToSection(selector) {
-            const el = document.querySelector(selector);
-            if(el) el.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // --- 4. ЛОГИКА ВИДЕО ---
-        function playVideo() {
-            const video = document.getElementById('videoPlayer');
-            const overlay = document.querySelector('.play-btn-overlay');
-            if (video.paused) {
-                video.play();
-                overlay.style.opacity = '0'; 
-                video.setAttribute('controls', 'controls'); 
-            } else {
-                video.pause();
-                overlay.style.opacity = '1';
-                video.removeAttribute('controls');
-            }
-        }
-    </script>
+    <script src="assets/js/main.js"></script>
 </body>
 </html>
