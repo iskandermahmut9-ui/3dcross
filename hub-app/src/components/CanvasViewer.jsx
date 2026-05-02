@@ -144,6 +144,12 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
     setScale(newScale);
   };
 
+  // 🔴 1. ВСТАВЛЯЕМ ЭТОТ БЛОК ПРЯМО ПЕРЕД return
+  const safeImageUrl = imageUrl ? imageUrl.replace(
+    'https://bbaoigykxjsrgkthsuiu.supabase.co', 
+    import.meta.env.VITE_SUPABASE_URL
+  ) : '';
+
   return (
     <div 
       ref={containerRef}
@@ -169,7 +175,7 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
         
         <img 
           ref={imgRef} // Привязали Ref
-          src={imageUrl} 
+          src={safeImageUrl} 
           alt="Render" 
           draggable="false"
           onLoad={initCanvasSize} // Вызываем нашу умную функцию

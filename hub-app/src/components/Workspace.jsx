@@ -5,8 +5,10 @@ import CanvasViewer from './CanvasViewer';
 import { supabase } from '../supabaseClient';
 
 export default function Workspace() {
+  
   const navigate = useNavigate();
   const { roomId } = useParams(); 
+  const isSendingRef = useRef(false);
   
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('tz'); 
@@ -77,69 +79,115 @@ export default function Workspace() {
     }
   }, [chatMessages, isChatOpen]);
 
-  // Загрузка сообщений и подписка на Realtime
+  // 🟢 Загрузка сообщений и "фейковый Realtime" (Поллинг)
   useEffect(() => {
     if (!projectData?.id) return;
 
+    let isFirstLoad = true; 
+    let localMessageCount = 0; 
+
     const fetchMessages = async () => {
-      const { data } = await supabase.from('messages').select('*').eq('project_id', projectData.id).order('created_at', { ascending: true });
-      if (data) setChatMessages(data);
-    };
-    fetchMessages();
-
-    // Подписка на новые сообщения в реальном времени
-    // Подписка на новые сообщения в реальном времени
-    const channel = supabase.channel('project_chat')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `project_id=eq.${projectData.id}` }, (payload) => {
-        setChatMessages(prev => [...prev, payload.new]);
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('project_id', projectData.id)
+        .order('created_at', { ascending: true });
         
-        // 🟢 Если пришло сообщение, а чат ЗАКРЫТ — увеличиваем счетчик
-        if (!isChatOpenRef.current) {
-          setUnreadCount(prev => prev + 1);
-        }
-      })
-      .subscribe();
+      if (data) {
+        // 🛑 ЗАЩИТА: Если мы прямо сейчас отправляем сообщение, запрещаем таймеру затирать чат!
+        if (isSendingRef.current) return;
 
-    return () => { supabase.removeChannel(channel); };
+        if (isFirstLoad) {
+          isFirstLoad = false;
+          localMessageCount = data.length;
+          setChatMessages(data);
+          return;
+        }
+
+        if (!isChatOpenRef.current && data.length > localMessageCount) {
+          const diff = data.length - localMessageCount;
+          setUnreadCount(prev => prev + diff);
+        }
+
+        localMessageCount = data.length;
+        setChatMessages(data);
+      }
+    };
+
+    fetchMessages();
+    const channelInterval = setInterval(fetchMessages, 3000);
+    return () => clearInterval(channelInterval);
   }, [projectData?.id]);
 
+  // 🟢 Отправка сообщений (с блокировкой таймера)
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !projectData?.id) return;
     const authorName = userRole === 'admin' ? 'Визуализатор' : 'Дизайнер';
     const msgText = newMessage.trim();
-    setNewMessage(''); // Очищаем инпут мгновенно
 
-    await supabase.from('messages').insert([{
-      project_id: projectData.id,
-      author: authorName,
-      text: msgText,
-      room_title: roomData?.title || 'Общее' // 🟢 Захватываем название комнаты!
-    }]);
+    try {
+      isSendingRef.current = true; // 🔴 1. Ставим фоновое обновление на паузу
+      setNewMessage(''); // Мгновенно очищаем поле ввода
+
+      // Мгновенно рисуем у себя
+      const optimisticMsg = {
+        id: `temp-${Date.now()}`, 
+        project_id: projectData.id,
+        author: authorName,
+        text: msgText,
+        room_title: roomData?.title || 'Общее',
+        created_at: new Date().toISOString()
+      };
+      
+      setChatMessages(prev => [...prev, optimisticMsg]);
+
+      // Отправляем в базу
+      await supabase.from('messages').insert([{
+        project_id: projectData.id,
+        author: authorName,
+        text: msgText,
+        room_title: roomData?.title || 'Общее' 
+      }]);
+
+      // 🔴 2. Сами принудительно запрашиваем свежий чат с настоящими ID из базы
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('project_id', projectData.id)
+        .order('created_at', { ascending: true });
+
+      if (data) setChatMessages(data);
+
+    } finally {
+      isSendingRef.current = false; // 🔴 3. Снимаем таймер с паузы в любом случае
+    }
   };
-  // 🟢 Подписка на обновления итераций (мгновенное изменение статуса)
+  // 🟢 Поллинг для обновления итераций (вместо сломанных сокетов)
   useEffect(() => {
     if (!roomId) return;
 
-    const iterationsChannel = supabase.channel('iterations_updates')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'iterations', 
-        filter: `room_id=eq.${roomId}` 
-      }, (payload) => {
-        const updatedIteration = payload.new;
-        
-        // Обновляем общую базу рендеров в памяти
-        setRenders(prev => prev.map(r => r.id === updatedIteration.id ? updatedIteration : r));
+    // Функция, которая тихо запрашивает свежие рендеры у базы
+    const fetchIterationsUpdates = async () => {
+      const { data } = await supabase
+        .from('iterations')
+        .select('*')
+        .eq('room_id', roomId); // Если там была какая-то хитрая сортировка, добавь её сюда
+
+      if (data) {
+        setRenders(data);
         
         // Если обновился статус именно того рендера, на который мы сейчас смотрим — меняем и его
-        setActiveRender(prev => prev?.id === updatedIteration.id ? updatedIteration : prev);
-      })
-      .subscribe();
-
-    return () => { 
-      supabase.removeChannel(iterationsChannel); 
+        setActiveRender(prevActive => {
+          if (!prevActive) return null;
+          return data.find(r => r.id === prevActive.id) || prevActive;
+        });
+      }
     };
+
+    // Опрашиваем базу каждые 3 секунды
+    const interval = setInterval(fetchIterationsUpdates, 3000);
+
+    return () => clearInterval(interval);
   }, [roomId]);
 
   useEffect(() => {
@@ -321,6 +369,57 @@ export default function Workspace() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       window.open(uploadedImage, '_blank');
+    }
+  };
+  // 🟢 1. Функция удаления ОДНОГО ракурса
+  const handleDeleteRender = async () => {
+    if (!activeRender) return;
+    if (!window.confirm('Точно удалить этот ракурс?')) return;
+
+    // Удаляем из базы
+    await supabase.from('iterations').delete().eq('id', activeRender.id);
+
+    // Убираем из стейта на экране
+    const updatedRenders = renders.filter(r => r.id !== activeRender.id);
+    setRenders(updatedRenders);
+
+    // Пытаемся переключиться на соседний ракурс в этой же итерации
+    const nextRender = updatedRenders.find(r => r.version === activeVersion);
+    if (nextRender) {
+      handleSelectRender(nextRender);
+    } else {
+      // Если это был последний ракурс - очищаем экран
+      setActiveRender(null);
+      setUploadedImage(null);
+    }
+  };
+
+  // 🟢 2. Функция удаления ВСЕЙ итерации
+  const handleDeleteIteration = async (versionToDelete) => {
+    if (!window.confirm(`Точно удалить всю Итерацию ${versionToDelete}? Это удалит все ракурсы внутри неё.`)) return;
+
+    // Удаляем из базы все ракурсы с этой версией для этой комнаты
+    await supabase.from('iterations').delete().eq('room_id', roomId).eq('version', versionToDelete);
+
+    // Убираем из стейта
+    const updatedRenders = renders.filter(r => r.version !== versionToDelete);
+    setRenders(updatedRenders);
+
+    // Если мы удалили ту итерацию, на которой сейчас находились, переключаемся на предыдущую
+    if (activeVersion === versionToDelete) {
+      // Ищем какие версии еще остались
+      const remainingVersions = Array.from(new Set(updatedRenders.map(r => r.version))).sort((a, b) => b - a);
+      if (remainingVersions.length > 0) {
+        const newVersion = remainingVersions[0]; // Берем самую свежую из оставшихся
+        setActiveVersion(newVersion);
+        const nextRender = updatedRenders.find(r => r.version === newVersion);
+        handleSelectRender(nextRender || null);
+      } else {
+        // Если вообще ничего не осталось
+        setActiveVersion(1);
+        setActiveRender(null);
+        setUploadedImage(null);
+      }
     }
   };
 
@@ -538,7 +637,10 @@ export default function Workspace() {
 
           {/* 🟢 КНОПКА ОТКРЫТИЯ ЧАТА (С уведомлениями) */}
           <button 
-            onClick={() => setIsChatOpen(!isChatOpen)} 
+            onClick={() => {
+              setIsChatOpen(!isChatOpen); // Открываем/закрываем чат
+              setUnreadCount(0);          // 🔴 Сбрасываем красный бейдж!
+            }} 
             style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: isChatOpen ? '#333' : '#1a1a1a', color: '#00ff88', border: '1px solid #333', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', transition: '0.2s' }}
           >
             <MessageCircle size={18} /> Чат проекта
@@ -710,9 +812,34 @@ export default function Workspace() {
               {renders.length > 0 && (
                 <div style={{ padding: '10px 20px', display: 'flex', gap: '10px', background: '#0a0a0a', borderBottom: '1px solid #333', alignItems: 'center' }}>
                   {Array.from(new Set(renders.map(r => r.version))).sort((a, b) => a - b).map(v => (
-                    <button key={v} onClick={() => { setActiveVersion(v); const firstOfVersion = renders.find(r => r.version === v); if (firstOfVersion) handleSelectRender(firstOfVersion); }} style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #333', background: activeVersion === v ? '#00ff88' : '#1a1a1a', color: activeVersion === v ? '#000' : '#888', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', transition: '0.2s' }}>Итерация {v}</button>
+                    // 🟢 Обновленный блок вкладки Итерации с крестиком
+                    <div key={v} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <button 
+                        onClick={() => { setActiveVersion(v); const firstOfVersion = renders.find(r => r.version === v); if (firstOfVersion) handleSelectRender(firstOfVersion); }} 
+                        style={{ 
+                          padding: '6px 12px', 
+                          paddingRight: (!isDesigner && activeVersion === v) ? '28px' : '12px', // Делаем отступ под крестик
+                          borderRadius: '4px', border: '1px solid #333', 
+                          background: activeVersion === v ? '#00ff88' : '#1a1a1a', 
+                          color: activeVersion === v ? '#000' : '#888', 
+                          cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', transition: '0.2s' 
+                        }}
+                      >
+                        Итерация {v}
+                      </button>
+                      
+                      {/* Крестик удаления (виден только Админу на активной вкладке) */}
+                      {!isDesigner && activeVersion === v && (
+                        <div 
+                          onClick={(e) => { e.stopPropagation(); handleDeleteIteration(v); }}
+                          style={{ position: 'absolute', right: '6px', cursor: 'pointer', color: '#000', display: 'flex' }}
+                          title="Удалить всю итерацию"
+                        >
+                          <X size={16} />
+                        </div>
+                      )}
+                    </div>
                   ))}
-                  
                   {!isDesigner && (
                     <button onClick={handleCreateNewIteration} style={{ padding: '6px 12px', borderRadius: '4px', border: '1px dashed #555', background: 'transparent', color: '#aaa', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', transition: '0.2s' }}>+ Новая итерация</button>
                   )}
@@ -736,12 +863,20 @@ export default function Workspace() {
                     />
                     {renders.filter(r => r.version === activeVersion).length > 0 && (
                       <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', background: 'rgba(26, 26, 26, 0.9)', padding: '10px', borderRadius: '12px', border: '1px solid #444', zIndex: 30, boxShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
-                        {renders.filter(r => r.version === activeVersion).map((r, idx) => (
-                          <div key={r.id} onClick={() => handleSelectRender(r)} style={{ width: '65px', height: '65px', borderRadius: '8px', overflow: 'hidden', border: activeRender?.id === r.id ? '2px solid #00ff88' : '2px solid #333', cursor: 'pointer', opacity: activeRender?.id === r.id ? 1 : 0.6, transition: '0.2s', position: 'relative' }}>
-                            <img src={r.image_url} alt="render" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '9px', textAlign: 'center', padding: '2px 0' }}>Ракурс {idx + 1}</div>
-                          </div>
-                        ))}
+                        {renders.filter(r => r.version === activeVersion).map((r, idx) => {
+                          // 🟢 Подменяем ссылку
+                          const safeThumbUrl = r.image_url ? r.image_url.replace(
+                            'https://bbaoigykxjsrgkthsuiu.supabase.co', 
+                            import.meta.env.VITE_SUPABASE_URL
+                          ) : '';
+
+                          return (
+                            <div key={r.id} onClick={() => handleSelectRender(r)} style={{ width: '65px', height: '65px', borderRadius: '8px', overflow: 'hidden', border: activeRender?.id === r.id ? '2px solid #00ff88' : '2px solid #333', cursor: 'pointer', opacity: activeRender?.id === r.id ? 1 : 0.6, transition: '0.2s', position: 'relative' }}>
+                              <img src={safeThumbUrl} alt="render" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '9px', textAlign: 'center', padding: '2px 0' }}>Ракурс {idx + 1}</div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -755,7 +890,16 @@ export default function Workspace() {
               {uploadedImage && !isUploading && (
                 <div style={{ position: 'absolute', left: '20px', top: '140px', display: 'flex', flexDirection: 'column', gap: '5px', background: '#1a1a1a', padding: '8px', borderRadius: '8px', border: '1px solid #333', zIndex: 20 }}>
                   <button style={getBtnStyle('cursor')} onClick={() => setActiveTool('cursor')} title="Перемещение"><MousePointer2 size={20} /></button>
-                  
+                  {/* 🟢 КНОПКА УДАЛЕНИЯ ТЕКУЩЕГО РАКУРСА (Только для Визуализатора) */}
+                  {!isDesigner && (
+                    <button 
+                      style={{ background: 'transparent', border: 'none', color: '#ff0044', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: '0.2s', display: 'flex', justifyContent: 'center' }} 
+                      onClick={handleDeleteRender} 
+                      title="Удалить текущий ракурс"cd hub-app
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  )}
                   {/* Если утверждено - кнопка пина становится серой и неактивной */}
                   <button 
                     style={{ ...getBtnStyle('pin'), opacity: activeRender?.status === 'Утверждено' ? 0.3 : 1, cursor: activeRender?.status === 'Утверждено' ? 'not-allowed' : 'pointer' }} 

@@ -52,10 +52,20 @@ export default function ProjectView() {
             .order('created_at', { ascending: false }) // Берем самый свежий рендер
             .limit(1);
 
-          return {
-            ...room,
-            cover_image: latestIteration && latestIteration.length > 0 ? latestIteration[0].image_url : null
-          };
+         // 🟢 Стало: Подменяем домен прямо при формировании обложки
+let safeCoverUrl = null;
+
+if (latestIteration && latestIteration.length > 0 && latestIteration[0].image_url) {
+  safeCoverUrl = latestIteration[0].image_url.replace(
+    'https://bbaoigykxjsrgkthsuiu.supabase.co', 
+    import.meta.env.VITE_SUPABASE_URL
+  );
+}
+
+return {
+  ...room,
+  cover_image: safeCoverUrl
+};
         }));
 
         // Разделяем комнаты на Общее ТЗ и обычные (теперь они уже с картинками)
