@@ -1,5 +1,7 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+// 🟢 Мы импортируем HashRouter, но даем ему "никнейм" Router, 
+// чтобы в коде ниже ничего не менять.
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 
 // --- ИМПОРТ КОНТЕКСТА АВТОРИЗАЦИИ ---
 import { AuthProvider } from './context/AuthContext';
@@ -15,18 +17,15 @@ import EditTZ from './pages/EditTZ';
 
 function App() {
   return (
-    // Оборачиваем всё приложение, чтобы оно "помнило" пользователя
     <AuthProvider>
-      {/* 🟢 ИЗМЕНЕНИЕ ЗДЕСЬ: Добавили basename="/hub" */}
-      <Router basename="/hub">
+      {/* 🟢 Здесь мы убрали basename="/hub", так как HashRouter 
+          сам поймет, что он находится в папке /hub/ по символу # */}
+      <Router>
         <Routes>
-          {/* --- ИСПРАВЛЕННЫЙ РОУТ НАСТРОЕК --- */}
           <Route path="/settings" element={<Settings />} />
-          
           <Route path="/auth" element={<Auth />} />
           <Route path="/room/:roomId/edit-tz" element={<EditTZ />} />
 
-          {/* --- ТВОИ СТАРЫЕ РОУТЫ --- */}
           <Route path="/" element={<Designers />} /> 
           <Route path="/projects" element={<Dashboard />} /> 
           <Route path="/designer/:designerId" element={<Dashboard />} />
