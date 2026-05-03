@@ -14,6 +14,14 @@ export default function Designers() {
   const myAdminEmail = '3d_cross@mail.ru'; 
   const isVisualizer = user?.email === myAdminEmail;
 
+  // 🟢 ДОБАВЛЯЕМ СЛУШАТЕЛЬ МОБИЛЬНИКА
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Проверка доступа
   useEffect(() => {
     if (!user) {
@@ -53,7 +61,6 @@ export default function Designers() {
   };
 
   useEffect(() => { 
-    // Загружаем данные только если юзер авторизован
     if (user) fetchDesigners(); 
   }, [user]);
 
@@ -87,52 +94,63 @@ export default function Designers() {
 
   const filteredDesigners = designers.filter(d => d.name?.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // Если пользователя еще нет, не рендерим интерфейс, ждем редиректа
   if (!user) return null;
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#0a0a0a', color: 'white', fontFamily: 'Manrope, sans-serif' }}>
+    // 🟢 МЕНЯЕМ НАПРАВЛЕНИЕ СЕТКИ
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100vh', backgroundColor: '#0a0a0a', color: 'white', fontFamily: 'Manrope, sans-serif' }}>
       
-      {/* МЫ УДАЛИЛИ ВЕСЬ СТАРЫЙ КОД И ПОСТАВИЛИ ЭТО: */}
       <Sidebar />
 
-      {/* ПРАВАЯ ОСНОВНАЯ ЧАСТЬ */}
-      <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-          <h1 style={{ margin: 0, fontWeight: '300', fontSize: '2rem' }}>База дизайнеров</h1>
-          <div style={{ display: 'flex', gap: '15px' }}>
+      {/* 🟢 УМЕНЬШАЕМ PADDING НА ТЕЛЕФОНЕ */}
+      <div style={{ flex: 1, padding: isMobile ? '20px' : '40px', overflowY: 'auto' }}>
+        
+        {/* 🟢 ШАПКА: выстраиваем в столбик на телефоне */}
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? '15px' : '0', marginBottom: '30px' }}>
+          <h1 style={{ margin: 0, fontWeight: '300', fontSize: isMobile ? '1.5rem' : '2rem' }}>База дизайнеров</h1>
+          
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '15px' }}>
             <div style={{ position: 'relative' }}>
               <Search size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: '#555' }} />
-              <input type="text" placeholder="Поиск..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: '#111', border: '1px solid #333', color: 'white', padding: '10px 15px 10px 40px', borderRadius: '6px', fontSize: '0.9rem', width: '250px' }} />
+              <input 
+                type="text" 
+                placeholder="Поиск..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                // 🟢 Ширина поиска на 100% для мобилки
+                style={{ background: '#111', border: '1px solid #333', color: 'white', padding: '10px 15px 10px 40px', borderRadius: '6px', fontSize: '0.9rem', width: isMobile ? '100%' : '250px', boxSizing: 'border-box' }} 
+              />
             </div>
             <button 
-  onClick={() => setIsAddModalOpen(true)} 
-  style={{ 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '8px', 
-    background: '#00ff88', /* Наш неоновый акцент */
-    color: '#000', /* Черный контрастный текст */
-    border: 'none', 
-    padding: '10px 20px', 
-    borderRadius: '8px', 
-    fontWeight: '600', 
-    cursor: 'pointer',
-    boxShadow: '0 4px 15px rgba(0, 255, 136, 0.2)', /* Мягкое зеленое свечение */
-    transition: 'all 0.2s ease' /* Плавность анимации */
-  }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = 'translateY(-2px)';
-    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 255, 136, 0.4)';
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = 'translateY(0)';
-    e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 255, 136, 0.2)';
-  }}
->
-  <UserPlus size={18} /> 
-  Добавить дизайнера
-</button>
+              onClick={() => setIsAddModalOpen(true)} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', // Центрируем текст на мобилке
+                gap: '8px', 
+                background: '#00ff88', 
+                color: '#000', 
+                border: 'none', 
+                padding: '10px 20px', 
+                borderRadius: '8px', 
+                fontWeight: '600', 
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(0, 255, 136, 0.2)', 
+                transition: 'all 0.2s ease',
+                width: isMobile ? '100%' : 'auto' // Кнопка во всю ширину на мобилке
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 255, 136, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 255, 136, 0.2)';
+              }}
+            >
+              <UserPlus size={18} /> 
+              Добавить дизайнера
+            </button>
           </div>
         </div>
 
@@ -151,10 +169,10 @@ export default function Designers() {
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
           }}>
             
-            {/* Шапка таблицы */}
+            {/* Шапка таблицы (скрываем на совсем узких экранах для красоты, либо оставляем как есть) */}
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: '2fr 1fr 1fr', 
+              gridTemplateColumns: isMobile ? '1fr 1fr auto' : '2fr 1fr 1fr', 
               padding: '16px 24px', 
               borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
               color: '#666', 
@@ -163,8 +181,8 @@ export default function Designers() {
               letterSpacing: '1px', 
               textTransform: 'uppercase' 
             }}>
-              <span>Имя дизайнера</span>
-              <span>Количество проектов</span>
+              <span>Имя</span>
+              <span>{isMobile ? 'Проекты' : 'Количество проектов'}</span>
               <span style={{ textAlign: 'right' }}>Действия</span>
             </div>
 
@@ -176,28 +194,30 @@ export default function Designers() {
                   onClick={() => navigate(`/designer/${d.id}`)} 
                   style={{ 
                     display: 'grid', 
-                    gridTemplateColumns: '2fr 1fr 1fr', 
+                    gridTemplateColumns: isMobile ? '1fr 1fr auto' : '2fr 1fr 1fr', 
                     alignItems: 'center', 
-                    padding: '16px 24px', 
+                    padding: isMobile ? '16px' : '16px 24px', 
                     borderBottom: '1px solid rgba(255, 255, 255, 0.02)', 
                     cursor: 'pointer',
                     transition: 'background 0.2s ease',
+                    gap: isMobile ? '10px' : '0'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
                   
                   {/* Аватарка и имя */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', overflow: 'hidden' }}>
                     <div style={{ 
                       width: '38px', height: '38px', borderRadius: '50%', 
                       background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', 
                       display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                      fontSize: '1.2rem', fontWeight: 'bold', border: '1px solid rgba(0, 255, 136, 0.2)' 
+                      fontSize: '1.2rem', fontWeight: 'bold', border: '1px solid rgba(0, 255, 136, 0.2)',
+                      flexShrink: 0
                     }}>
                       {d.name ? d.name.charAt(0).toUpperCase() : 'U'}
                     </div>
-                    <span style={{ fontSize: '1rem', color: '#fff', fontWeight: '500', letterSpacing: '0.3px' }}>
+                    <span style={{ fontSize: isMobile ? '0.9rem' : '1rem', color: '#fff', fontWeight: '500', letterSpacing: '0.3px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                       {d.name}
                     </span>
                   </div>
@@ -208,12 +228,12 @@ export default function Designers() {
                       background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', 
                       padding: '6px 14px', borderRadius: '20px', fontSize: '0.85rem', color: '#aaa' 
                     }}>
-                      Проектов: <span style={{ color: '#fff', fontWeight: 'bold' }}>{Array.isArray(d.projects) ? d.projects.length : 0}</span>
+                      {!isMobile && "Проектов: "}<span style={{ color: '#fff', fontWeight: 'bold' }}>{Array.isArray(d.projects) ? d.projects.length : 0}</span>
                     </span>
                   </div>
 
                   {/* Кнопки действий */}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px' }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }} onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={() => { setEditingDesigner(d); setEditName(d.name); }} 
                       style={{ background: 'transparent', border: 'none', color: '#666', cursor: 'pointer', transition: '0.2s', padding: '5px' }} 
@@ -221,7 +241,7 @@ export default function Designers() {
                       onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
                       title="Редактировать"
                     >
-                      <Edit2 size={20} />
+                      <Edit2 size={18} />
                     </button>
                     
                     <button 
@@ -231,14 +251,13 @@ export default function Designers() {
                       onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
                       title="Удалить"
                     >
-                      <Trash2 size={20} />
+                      <Trash2 size={18} />
                     </button>
                   </div>
 
                 </div>
               ))}
               
-              {/* Заглушка, если дизайнеров пока нет */}
               {filteredDesigners.length === 0 && (
                 <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
                   Дизайнеры не найдены
@@ -249,10 +268,10 @@ export default function Designers() {
         )}
       </div>
 
-      {/* МОДАЛКА: ДОБАВИТЬ ДИЗАЙНЕРА */}
+      {/* МОДАЛКИ (оставил без изменений) */}
       {isAddModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '12px', width: '350px', border: '1px solid #333' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}>
+          <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '12px', width: '100%', maxWidth: '350px', border: '1px solid #333', boxSizing: 'border-box' }}>
             <h3 style={{ marginTop: 0, fontSize: '1.4rem' }}>Добавить дизайнера</h3>
             <input type="text" autoFocus placeholder="Имя дизайнера..." value={newDesignerName} onChange={(e) => setNewDesignerName(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '6px', color: 'white', marginBottom: '20px', boxSizing: 'border-box' }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
@@ -263,10 +282,9 @@ export default function Designers() {
         </div>
       )}
 
-      {/* МОДАЛКА: РЕДАКТИРОВАТЬ ДИЗАЙНЕРА */}
       {editingDesigner && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '12px', width: '350px', border: '1px solid #333' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}>
+          <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '12px', width: '100%', maxWidth: '350px', border: '1px solid #333', boxSizing: 'border-box' }}>
             <h3 style={{ marginTop: 0 }}>Изменить имя</h3>
             <input type="text" autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '6px', color: 'white', marginBottom: '20px', boxSizing: 'border-box' }} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>

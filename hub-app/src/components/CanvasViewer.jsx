@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 
-export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl, initialLines, onSaveLines, userRole }) {
+// 🟢 Добавили onPinClick в пропсы
+export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl, initialLines, onSaveLines, userRole, onPinClick, undoSignal }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
-  const imgRef = useRef(null); // Добавили ссылку на саму картинку
+  const imgRef = useRef(null);
 
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -15,30 +16,40 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
   const [currentLine, setCurrentLine] = useState(null);
 
   const [imageLoaded, setImageLoaded] = useState(false);
+  
+  // 🟢 Стейт для зума двумя пальцами на телефоне
+  const [initialPinchDistance, setInitialPinchDistance] = useState(null);
 
   const drawColor = userRole === 'admin' ? '#00ff88' : '#ff0000';
 
-  // 1. Обновляем линии при переключении итераций
+  // 🟢 Улучшенная защита: не дергаем холст, если сервер прислал то же самое количество линий
   useEffect(() => {
-    setLines(initialLines || []);
+    setLines(prevLines => {
+      const incomingLines = initialLines || [];
+      if (prevLines.length >= incomingLines.length) {
+        return prevLines; 
+      }
+      return incomingLines;
+    });
   }, [initialLines]);
 
-  // 2. Бронебойная инициализация холста (даже если картинка из кэша)
+  // 🟢 --- А ВОТ ЭТОТ БЛОК ТЕБЕ НУЖНО ВСТАВИТЬ ПРЯМО СЮДА ---
+  useEffect(() => {
+    if (undoSignal > 0) {
+      setLines(initialLines || []); // Принудительно стираем линию по сигналу
+    }
+  }, [undoSignal]);
   const initCanvasSize = () => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     const img = imgRef.current;
 
-    // Проверяем, загрузилась ли картинка и есть ли у нее размеры
     if (canvas && container && img && img.complete && img.naturalWidth > 0) {
-      
-      // Задаем размер только если он изменился (чтобы не стирать холст просто так)
       if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
       }
 
-      const padding = 100; 
       const contW = container.clientWidth || window.innerWidth;
       const contH = container.clientHeight || window.innerHeight;
 
@@ -46,7 +57,6 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
       const scaleH = contH / img.naturalHeight;
       const initialScale = Math.min(scaleW, scaleH, 1); 
 
-      // Если это первая загрузка - центрируем
       if (!imageLoaded) {
         setScale(initialScale);
         setPosition({ x: 0, y: 0 });
@@ -55,15 +65,13 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
     }
   };
 
-  // Вызываем проверку при смене картинки
   useEffect(() => {
     setImageLoaded(false);
-    initCanvasSize(); // Пробуем сразу (если кэш)
-    const timer = setTimeout(initCanvasSize, 150); // Пробуем чуть позже (когда DOM построится)
+    initCanvasSize(); 
+    const timer = setTimeout(initCanvasSize, 150); 
     return () => clearTimeout(timer);
   }, [imageUrl]);
 
-  // 3. Главный эффект отрисовки
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !imageLoaded) return; 
@@ -93,24 +101,25 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
     }
   }, [lines, currentLine, scale, imageLoaded]); 
 
-  const getCanvasCoordinates = (e) => {
+  // --- ЛОГИКА ДЛЯ МЫШИ (ПК) ---
+  const getCanvasCoordinates = (clientX, clientY) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / scale;
-    const y = (e.clientY - rect.top) / scale;
+    const x = (clientX - rect.left) / scale;
+    const y = (clientY - rect.top) / scale;
     return { x, y };
   };
 
   const handleMouseDown = (e) => {
-    if (!imageLoaded) return; // Защита от кликов до загрузки
+    if (!imageLoaded) return; 
     if (activeTool === 'cursor') {
       setIsDragging(true);
       setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
     } else if (activeTool === 'draw') {
       setIsDrawing(true);
-      setCurrentLine({ color: drawColor, points: [getCanvasCoordinates(e)] });
+      setCurrentLine({ color: drawColor, points: [getCanvasCoordinates(e.clientX, e.clientY)] });
     } else if (activeTool === 'pin') {
-      const coords = getCanvasCoordinates(e);
+      const coords = getCanvasCoordinates(e.clientX, e.clientY);
       const canvas = canvasRef.current;
       onAddPin({ x: (coords.x / canvas.width) * 100, y: (coords.y / canvas.height) * 100 });
     }
@@ -120,7 +129,7 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
     if (isDragging && activeTool === 'cursor') {
       setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
     } else if (isDrawing && activeTool === 'draw' && currentLine) {
-      setCurrentLine({ ...currentLine, points: [...currentLine.points, getCanvasCoordinates(e)] });
+      setCurrentLine({ ...currentLine, points: [...currentLine.points, getCanvasCoordinates(e.clientX, e.clientY)] });
     }
   };
 
@@ -144,7 +153,59 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
     setScale(newScale);
   };
 
-  // 🔴 1. ВСТАВЛЯЕМ ЭТОТ БЛОК ПРЯМО ПЕРЕД return
+  // --- 🟢 ЛОГИКА ДЛЯ СЕНСОРНЫХ ЭКРАНОВ (Мобилки) ---
+  const handleTouchStart = (e) => {
+    if (!imageLoaded) return;
+    
+    // Зум двумя пальцами (только если выбран курсор)
+    if (e.touches.length === 2 && activeTool === 'cursor') {
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      setInitialPinchDistance(dist);
+      return;
+    }
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      if (activeTool === 'cursor') {
+        setIsDragging(true);
+        setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
+      } else if (activeTool === 'draw') {
+        setIsDrawing(true);
+        setCurrentLine({ color: drawColor, points: [getCanvasCoordinates(touch.clientX, touch.clientY)] });
+      } else if (activeTool === 'pin') {
+        const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+        const canvas = canvasRef.current;
+        onAddPin({ x: (coords.x / canvas.width) * 100, y: (coords.y / canvas.height) * 100 });
+      }
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    // Движение двумя пальцами (Зум)
+    if (e.touches.length === 2 && activeTool === 'cursor' && initialPinchDistance) {
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      const scaleAmount = (dist - initialPinchDistance) * 0.005; // Чувствительность зума
+      const newScale = Math.min(Math.max(0.1, scale + scaleAmount), 5);
+      setScale(newScale);
+      setInitialPinchDistance(dist); // Обновляем дистанцию для плавности
+      return;
+    }
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      if (isDragging && activeTool === 'cursor') {
+        setPosition({ x: touch.clientX - dragStart.x, y: touch.clientY - dragStart.y });
+      } else if (isDrawing && activeTool === 'draw' && currentLine) {
+        setCurrentLine({ ...currentLine, points: [...currentLine.points, getCanvasCoordinates(touch.clientX, touch.clientY)] });
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setInitialPinchDistance(null); // Сбрасываем зум
+    handleMouseUp(); // Логика завершения такая же, как на мышке
+  };
+
   const safeImageUrl = imageUrl ? imageUrl.replace(
     'https://bbaoigykxjsrgkthsuiu.supabase.co', 
     import.meta.env.VITE_SUPABASE_URL
@@ -161,6 +222,7 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
         position: 'absolute', 
         top: 0, 
         left: 0, 
+        touchAction: 'none', // 🟢 Отключает скролл страницы браузером, отдавая все свайпы холсту
         cursor: activeTool === 'cursor' ? (isDragging ? 'grabbing' : 'grab') : 'crosshair' 
       }}
     >
@@ -174,11 +236,11 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
       }}>
         
         <img 
-          ref={imgRef} // Привязали Ref
+          ref={imgRef} 
           src={safeImageUrl} 
           alt="Render" 
           draggable="false"
-          onLoad={initCanvasSize} // Вызываем нашу умную функцию
+          onLoad={initCanvasSize} 
           style={{ display: 'block', maxWidth: 'none', userSelect: 'none' }}
         />
         
@@ -188,14 +250,18 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          // 🟢 Подключаем слушатели мобильных касаний
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
         />
         
         {comments.map((comment) => {
           const isVis = comment.author === 'Визуализатор';
-          const isResolved = comment.is_resolved; // 🟢 Читаем статус из базы
+          const isResolved = comment.is_resolved; 
 
-          // 🟢 Если выполнено - серый цвет. Если нет - стандартные цвета.
           const bgColor = isResolved ? 'rgba(80, 80, 80, 0.7)' : (isVis ? '#00ff88' : '#ffffff');
           const textColor = isResolved ? '#aaaaaa' : '#000000';
           const borderColor = isResolved ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.8)';
@@ -203,6 +269,11 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
           return (
             <div 
               key={comment.id}
+              // 🟢 Вызываем открытие карточки комментария
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (onPinClick) onPinClick(comment.id); 
+              }}
               style={{ 
                 position: 'absolute', left: `${comment.pos_x}%`, top: `${comment.pos_y}%`, transform: `translate(-50%, -50%) scale(${1 / scale})`, 
                 width: '32px', height: '32px', 
@@ -210,9 +281,10 @@ export default function CanvasViewer({ activeTool, comments, onAddPin, imageUrl,
                 color: textColor, 
                 borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 'bold', 
                 border: `3px solid ${borderColor}`, 
-                boxShadow: isResolved ? 'none' : '0 4px 10px rgba(0,0,0,0.5)', // Убираем тень у выполненных
-                pointerEvents: 'none', 
-                zIndex: isResolved ? 5 : 10 // Выполненные пины уходят на задний план
+                boxShadow: isResolved ? 'none' : '0 4px 10px rgba(0,0,0,0.5)', 
+                pointerEvents: 'auto', // 🟢 ВЕРНУЛИ КЛИКАБЕЛЬНОСТЬ ПИНАМ!
+                cursor: 'pointer',     // 🟢 Курсор пальца при наведении
+                zIndex: isResolved ? 5 : 10 
               }}
             >
               {comment.number}

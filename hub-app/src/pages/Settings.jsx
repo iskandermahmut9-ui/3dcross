@@ -14,10 +14,17 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // 1. Прячем функцию внутрь эффекта и жестко привязываем к ID
+  // 🟢 1. ДОБАВЛЯЕМ СЛУШАТЕЛЬ МОБИЛЬНИКА
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user?.id) return; // Защита: нет ID - нет запроса
+      if (!user?.id) return; 
 
       try {
         setLoading(true);
@@ -25,7 +32,7 @@ export default function Settings() {
           .from('profiles')
           .select('name, phone, telegram, role')
           .eq('id', user.id)
-          .maybeSingle(); // 2. ОБЯЗАТЕЛЬНО maybeSingle, чтобы не было ошибки 406
+          .maybeSingle(); 
 
         if (error) throw error;
         
@@ -42,7 +49,7 @@ export default function Settings() {
     };
 
     fetchProfile();
-  }, [user?.id]); // 3. Следим ТОЛЬКО за ID (текстом), а не за объектом!
+  }, [user?.id]); 
 
   const handleSave = async () => {
     setSaving(true);
@@ -62,12 +69,15 @@ export default function Settings() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#0a0a0a', color: 'white', fontFamily: 'Manrope, sans-serif' }}>
+    // 🟢 2. МЕНЯЕМ НАПРАВЛЕНИЕ СЕТКИ
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100vh', backgroundColor: '#0a0a0a', color: 'white', fontFamily: 'Manrope, sans-serif' }}>
       
       <Sidebar />
 
-      <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
-        <h1 style={{ margin: '0 0 40px 0', fontWeight: '300', fontSize: '2rem' }}>Личный кабинет</h1>
+      {/* 🟢 3. УМЕНЬШАЕМ PADDING НА ТЕЛЕФОНЕ */}
+      <div style={{ flex: 1, padding: isMobile ? '20px' : '40px', overflowY: 'auto' }}>
+        
+        <h1 style={{ margin: '0 0 30px 0', fontWeight: '300', fontSize: isMobile ? '1.5rem' : '2rem' }}>Личный кабинет</h1>
 
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#555' }}>
@@ -76,9 +86,9 @@ export default function Settings() {
         ) : (
           <div style={{ 
             maxWidth: '600px', 
-            background: 'rgba(26, 26, 26, 0.4)', /* Умное стекло */
+            background: 'rgba(26, 26, 26, 0.4)', 
             backdropFilter: 'blur(12px)', 
-            padding: '40px', /* Чуть увеличил отступы для "воздуха" */
+            padding: isMobile ? '20px' : '40px', 
             borderRadius: '16px', 
             border: '1px solid rgba(255, 255, 255, 0.08)',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)' 
@@ -89,7 +99,6 @@ export default function Settings() {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
-              {/* Поле: Имя */}
               <div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#aaa', marginBottom: '10px', fontSize: '0.85rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   <User size={16} color="#00ff88" /> Имя или название студии
@@ -101,7 +110,7 @@ export default function Settings() {
                   placeholder="Например, Иван Иванов"
                   style={{ 
                     width: '100%', padding: '14px 16px', 
-                    background: 'rgba(0, 0, 0, 0.3)', /* Темный полупрозрачный фон */
+                    background: 'rgba(0, 0, 0, 0.3)', 
                     border: '1px solid rgba(255, 255, 255, 0.1)', 
                     borderRadius: '8px', color: 'white', boxSizing: 'border-box',
                     transition: 'all 0.2s ease', outline: 'none', fontSize: '1rem'
@@ -111,7 +120,6 @@ export default function Settings() {
                 />
               </div>
 
-              {/* Поле: Телефон */}
               <div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#aaa', marginBottom: '10px', fontSize: '0.85rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   <Phone size={16} color="#00ff88" /> Телефон
@@ -133,7 +141,6 @@ export default function Settings() {
                 />
               </div>
 
-              {/* Поле: Telegram */}
               <div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#aaa', marginBottom: '10px', fontSize: '0.85rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   <Send size={16} color="#00ff88" /> Ник в Telegram
@@ -155,18 +162,19 @@ export default function Settings() {
                 />
               </div>
 
-              {/* Кнопка сохранения */}
+              {/* 🟢 Кнопка сохранения вытягивается на 100% на телефоне и центрируется текст */}
               <div style={{ marginTop: '16px' }}>
                 <button 
                   onClick={handleSave} 
                   disabled={saving}
                   style={{ 
-                    display: 'flex', alignItems: 'center', gap: '10px', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', 
                     background: '#00ff88', color: '#000', border: 'none', 
                     padding: '14px 28px', borderRadius: '8px', 
                     fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', 
                     opacity: saving ? 0.7 : 1, transition: 'all 0.2s ease',
-                    boxShadow: '0 4px 15px rgba(0, 255, 136, 0.2)'
+                    boxShadow: '0 4px 15px rgba(0, 255, 136, 0.2)',
+                    width: isMobile ? '100%' : 'auto' 
                   }}
                   onMouseEnter={(e) => { if(!saving) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 255, 136, 0.4)'; } }}
                   onMouseLeave={(e) => { if(!saving) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 255, 136, 0.2)'; } }}

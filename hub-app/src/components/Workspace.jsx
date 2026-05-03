@@ -1,28 +1,62 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, Pencil, MousePointer2, Trash2, ArrowLeft, Upload, Loader2, FileText, Image as ImageIcon, Save, Link as LinkIcon, Plus, X, ImagePlus, FileArchive, Maximize2, Download, Check, ArrowLeftRight, MessageCircle, Send, ExternalLink, CheckCircle2, Circle } from 'lucide-react';
+// 🟢 Добавили Undo в общий список иконок
+import { MessageSquare, Pencil, MousePointer2, Trash2, ArrowLeft, Upload, Loader2, FileText, Image as ImageIcon, Save, Link as LinkIcon, Plus, X, ImagePlus, FileArchive, Maximize2, Download, Check, ArrowLeftRight, MessageCircle, Send, ExternalLink, CheckCircle2, Circle, Undo } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CanvasViewer from './CanvasViewer';
 import { supabase } from '../supabaseClient';
 
 export default function Workspace() {
+  // 🟢 ПРАВИЛЬНО: стейт undoSignal находится ВНУТРИ функции компонента!
+  const [undoSignal, setUndoSignal] = useState(0);
   
   const navigate = useNavigate();
   const { roomId } = useParams(); 
   const isSendingRef = useRef(false);
   
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('tz'); 
+  const [activeTab, setActiveTab] = useState('tz');
+  // 1. СЛУШАТЕЛЬ МОБИЛЬНИКА
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
+  // 2. СНАЧАЛА ОБЪЯВЛЯЕМ ВСЕ ПЕРЕМЕННЫЕ (СТЕЙТЫ)
   const [roomData, setRoomData] = useState(null);
   const [projectData, setProjectData] = useState(null);
   const [designerData, setDesignerData] = useState(null);
-
   const [activeTool, setActiveTool] = useState('cursor');
-  
+  const isAddingPinRef = useRef(false);
   const [renders, setRenders] = useState([]); 
   const [activeRender, setActiveRender] = useState(null); 
   const [activeVersion, setActiveVersion] = useState(1);
-  const [comments, setComments] = useState([]); 
+  const [comments, setComments] = useState([]);
+
+  // 🟢 Новые стейты для правок
+  const [activeCommentId, setActiveCommentId] = useState(null);
+  const iterationsContainerRef = useRef(null);
+
+  // 3. И ТОЛЬКО ТЕПЕРЬ ЗАПУСКАЕМ ЭФФЕКТЫ, КОТОРЫЕ ИХ ИСПОЛЬЗУЮТ
+  // 🟢 Авто-скролл до выбранной карточки правки на мобилке
+  useEffect(() => {
+    if (activeCommentId && isMobile) {
+      const el = document.getElementById(`comment-card-${activeCommentId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [activeCommentId, isMobile]);
+
+  // 🟢 Автоматический скролл итераций в самый конец (к последней)
+  useEffect(() => {
+    if (iterationsContainerRef.current) {
+      iterationsContainerRef.current.scrollLeft = iterationsContainerRef.current.scrollWidth;
+    }
+  }, [renders.length, activeTab]);
+
+  // ... дальше у тебя идут другие стейты вроде uploadedImage и логика
 
   const [uploadedImage, setUploadedImage] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -63,6 +97,16 @@ export default function Workspace() {
   // 🟢 Новые переменные для уведомлений
   const [unreadCount, setUnreadCount] = useState(0);
   const isChatOpenRef = useRef(isChatOpen);
+  
+  // 🟢 Автоматически прокручиваем карусель к нужной правке
+  useEffect(() => {
+    if (activeCommentId && isMobile) {
+      const el = document.getElementById(`comment-card-${activeCommentId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [activeCommentId, isMobile]);
 
   // Синхронизируем Ref и сбрасываем счетчик, когда чат открывают
   useEffect(() => {
@@ -166,21 +210,64 @@ export default function Workspace() {
   useEffect(() => {
     if (!roomId) return;
 
-    // Функция, которая тихо запрашивает свежие рендеры у базы
+    // Функция, которая тихо запрашивает свежие рендеры и комменты у базы
     const fetchIterationsUpdates = async () => {
-      const { data } = await supabase
+      if (!roomId) return;
+
+      // 1. Скачиваем рендеры и линии
+      const { data: iters } = await supabase
         .from('iterations')
         .select('*')
-        .eq('room_id', roomId); // Если там была какая-то хитрая сортировка, добавь её сюда
+        .eq('room_id', roomId)
+        .order('version', { ascending: true }); // Сортировка по итерациям
 
-      if (data) {
-        setRenders(data);
-        
-        // Если обновился статус именно того рендера, на который мы сейчас смотрим — меняем и его
+      if (iters) {
+        setRenders(prevRenders => prevRenders.map(pr => {
+          const newIt = iters.find(i => i.id === pr.id);
+          if (!newIt) return pr;
+          const newLines = newIt.lines || [];
+          const oldLines = pr.lines || [];
+          // Если у нас локально нарисовано больше линий, оставляем наши (чтобы не моргало)
+          return { ...newIt, lines: newLines.length > oldLines.length ? newLines : oldLines };
+        }));
+
         setActiveRender(prevActive => {
           if (!prevActive) return null;
-          return data.find(r => r.id === prevActive.id) || prevActive;
+          const updatedActive = iters.find(i => i.id === prevActive.id);
+          if (!updatedActive) return prevActive;
+          const newLines = updatedActive.lines || [];
+          const oldLines = prevActive.lines || [];
+          return { ...updatedActive, lines: newLines.length > oldLines.length ? newLines : oldLines };
         });
+      }
+
+      // 2. Скачиваем пины (комментарии) только для активного рендера
+      if (activeRender?.id) {
+        const { data: comms } = await supabase
+          .from('comments')
+          .select('*')
+          .eq('iteration_id', activeRender?.id);
+
+        if (comms) {
+          setComments(prevComms => {
+            // 🟢 Жестко доверяем базе: если на сервере пина нет, значит он удален!
+            const merged = comms.map(newC => {
+              const oldC = prevComms.find(c => c.id === newC.id);
+              // Защита текста: если этот коммент сейчас открыт, не затираем текст из базы!
+              if (oldC && oldC.id === activeCommentId) {
+                return { ...newC, text: oldC.text }; 
+              }
+              return newC;
+            });
+            
+            // Если открытый коммент удалили с другого устройства, закрываем его панель
+            if (activeCommentId && !merged.find(c => c.id === activeCommentId)) {
+              setActiveCommentId(null);
+            }
+            
+            return merged.sort((a, b) => a.number - b.number);
+          });
+        }
       }
     };
 
@@ -188,7 +275,7 @@ export default function Workspace() {
     const interval = setInterval(fetchIterationsUpdates, 3000);
 
     return () => clearInterval(interval);
-  }, [roomId]);
+  }, [roomId, activeRender?.id, activeCommentId]); // 🟢 ОБЯЗАТЕЛЬНО добавили зависимости!
 
   useEffect(() => {
     const fetchData = async () => {
@@ -299,27 +386,105 @@ export default function Workspace() {
   
   const handleAddPin = async (coords) => { 
     if (!activeRender) return; 
-    
-    // 🟢 Блокировка: если утверждено, запрещаем ставить пины
     if (activeRender.status === 'Утверждено') {
-      alert('Этот ракурс уже утвержден. Добавление новых правок заблокировано.');
+      alert('Ракурс утвержден. Правки заблокированы.');
       return;
     }
 
-    const authorName = userRole === 'admin' ? 'Визуализатор' : 'Дизайнер';
-    const { data: newComment, error } = await supabase.from('comments').insert([{ iteration_id: activeRender.id, pos_x: coords.x, pos_y: coords.y, number: comments.length + 1, text: '', author: authorName }]).select().single(); 
-    if (!error) { setComments([...comments, newComment]); setActiveTool('cursor'); } 
+    // 🟢 ЗАЩИТА ОТ ДВОЙНИКОВ: Если функция уже выполняется, игнорируем второй клик!
+    if (isAddingPinRef.current) return;
+    isAddingPinRef.current = true; // Закрываем замок
+
+    try {
+      const authorName = userRole === 'admin' ? 'Визуализатор' : 'Дизайнер';
+      const maxNumber = comments.length > 0 ? Math.max(...comments.map(c => c.number || 0)) : 0;
+      const newNumber = maxNumber + 1;
+
+      // Мгновенно отключаем инструмент пина, чтобы предотвратить дальнейшие клики
+      setActiveTool('cursor'); 
+
+      const { data: newComment, error } = await supabase.from('comments').insert([{ 
+        iteration_id: activeRender.id, 
+        pos_x: coords.x, 
+        pos_y: coords.y, 
+        number: newNumber, 
+        text: '', 
+        author: authorName 
+      }]).select().single(); 
+
+      if (error) {
+        alert("Ошибка создания пина: " + error.message);
+        return;
+      }
+
+      if (newComment) { 
+        setComments(prev => [...prev, newComment].sort((a, b) => a.number - b.number)); 
+        setActiveCommentId(newComment.id); 
+      } 
+    } finally {
+      // 🟢 Снимаем замок через 500 миллисекунд (надежная защита от фантомных кликов браузера)
+      setTimeout(() => {
+        isAddingPinRef.current = false;
+      }, 500);
+    }
   };
   
   const handleTextChange = (id, newText) => setComments(comments.map(c => c.id === id ? { ...c, text: newText } : c));
-  const handleTextSave = async (id, finalString) => await supabase.from('comments').update({ text: finalString }).eq('id', id);
-  const handleSaveLines = async (newLines) => { if (!activeRender) return; const { error } = await supabase.from('iterations').update({ lines: newLines }).eq('id', activeRender.id); if (!error) { setRenders(prev => prev.map(r => r.id === activeRender.id ? { ...r, lines: newLines } : r)); setActiveRender(prev => ({ ...prev, lines: newLines })); } };
-  // Функция переключения статуса правки (Выполнено / Не выполнено)
-  const handleToggleResolve = async (id, currentStatus) => {
-    // Меняем статус локально для скорости
-    setComments(comments.map(c => c.id === id ? { ...c, is_resolved: !currentStatus } : c));
-    // Отправляем изменения в базу
-    await supabase.from('comments').update({ is_resolved: !currentStatus }).eq('id', id);
+  const handleTextSave = async (commentId, newText) => {
+    // 1. Мгновенно обновляем интерфейс, чтобы текст не пропадал
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, text: newText } : c));
+
+    // 2. Отправляем в базу
+    const { error } = await supabase.from('comments').update({ text: newText }).eq('id', commentId);
+
+    // 3. Ловушка на случай проблем с правами RLS
+    if (error) {
+      console.error("🚨 Ошибка базы данных:", error);
+      alert("Текст не сохранился! Ошибка Supabase: " + error.message + " (Проверь RLS UPDATE для comments)");
+    }
+  };
+  // 🟢 Принудительное сохранение текста перед закрытием окна
+  const handleCloseComment = () => {
+    if (activeCommentId) {
+      const comment = comments.find(c => c.id === activeCommentId);
+      if (comment) {
+        handleTextSave(comment.id, comment.text); // Отправляем в базу!
+      }
+    }
+    setActiveCommentId(null);
+  };
+  const handleSaveLines = async (newLines) => { 
+    if (!activeRender) return; 
+
+    // 1. Мгновенно обновляем картинку на экране у самого дизайнера
+    setRenders(prev => prev.map(r => r.id === activeRender.id ? { ...r, lines: newLines } : r)); 
+    setActiveRender(prev => ({ ...prev, lines: newLines })); 
+    
+    // 2. Пытаемся отправить данные в Supabase
+    const { error } = await supabase.from('iterations').update({ lines: newLines }).eq('id', activeRender.id); 
+    
+    // 🟢 3. ЛОВУШКА ДЛЯ ОШИБКИ: Если Supabase отклонит запрос, мы это сразу увидим!
+    if (error) {
+      console.error("🚨 Ошибка сохранения в Supabase:", error);
+      alert("Не удалось сохранить рисунок! Ошибка базы данных: " + error.message);
+    }
+  };
+  // 🟢 Функция "Шаг назад" (Удаляет последнюю нарисованную линию)
+  const handleUndoLine = async () => {
+    if (!activeRender || !activeRender.lines || activeRender.lines.length === 0) return;
+
+    const newLines = activeRender.lines.slice(0, -1);
+
+    // 1. Мгновенно обновляем экран
+    setRenders(prev => prev.map(r => r.id === activeRender.id ? { ...r, lines: newLines } : r));
+    setActiveRender(prev => ({ ...prev, lines: newLines }));
+    
+    // 🟢 ПОСЫЛАЕМ СИГНАЛ ХОЛСТУ ПРИНУДИТЕЛЬНО ОБНОВИТЬСЯ:
+    setUndoSignal(prev => prev + 1);
+
+    // 2. Отправляем в базу
+    const { error } = await supabase.from('iterations').update({ lines: newLines }).eq('id', activeRender.id);
+    if (error) console.error("Ошибка при отмене линии:", error);
   };
   // Функция утверждения итерации (Approve)
   const handleApproveRender = async () => {
@@ -346,7 +511,19 @@ export default function Workspace() {
       }
     }
   };
-  const handleDeleteComment = async (id) => { try { await supabase.from('comments').delete().eq('id', id); const filtered = comments.filter(c => c.id !== id); const renumbered = filtered.map((c, index) => ({ ...c, number: index + 1 })); setComments(renumbered); for (const comment of renumbered) { await supabase.from('comments').update({ number: comment.number }).eq('id', comment.id); } } catch (error) { alert('Не удалось удалить правку.'); } };
+  const handleDeleteComment = async (commentId) => {
+    // 1. Мгновенно и безвозвратно убираем пин с экрана (Оптимистичное обновление)
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    if (activeCommentId === commentId) {
+      setActiveCommentId(null);
+    }
+
+    // 2. Тихо удаляем из базы данных
+    const { error } = await supabase.from('comments').delete().eq('id', commentId);
+    if (error) {
+      console.error("Ошибка удаления пина в Supabase:", error);
+    }
+  };
 
   const handleDownloadCleanImage = async () => {
     if (!uploadedImage || !activeRender) return;
@@ -512,170 +689,103 @@ export default function Workspace() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#0a0a0a', color: 'white', fontFamily: 'Manrope, sans-serif', overflow: 'hidden' }}>
       
-      {/* ==========================================
-          🟢 ВЫЕЗЖАЮЩАЯ ПАНЕЛЬ ЧАТА
-          ========================================== */}
-      <div style={{
-        position: 'fixed', top: 0, right: isChatOpen ? 0 : '-400px', width: '400px', height: '100vh',
-        background: '#161616', borderLeft: '1px solid #333', zIndex: 9999, transition: 'right 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        display: 'flex', flexDirection: 'column', boxShadow: isChatOpen ? '-5px 0 30px rgba(0,0,0,0.6)' : 'none'
-      }}>
+      {/* 🟢 ВЫЕЗЖАЮЩАЯ ПАНЕЛЬ ЧАТА (100% ширины на мобилке) */}
+      <div style={{ position: 'fixed', top: 0, right: isChatOpen ? 0 : (isMobile ? '-100%' : '-400px'), width: isMobile ? '100%' : '400px', height: '100vh', background: '#161616', borderLeft: '1px solid #333', zIndex: 9999, transition: 'right 0.3s ease', display: 'flex', flexDirection: 'column', boxShadow: isChatOpen ? '-5px 0 30px rgba(0,0,0,0.6)' : 'none' }}>
         <div style={{ padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111' }}>
-          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem' }}>
-            <MessageCircle size={22} color="#00ff88" /> 
-            Обсуждение проекта
-          </h3>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem' }}><MessageCircle size={22} color="#00ff88" /> Обсуждение</h3>
           <button onClick={() => setIsChatOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={18} /></button>
         </div>
-        
         <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {chatMessages.map(msg => {
             const isMe = (userRole === 'admin' && msg.author === 'Визуализатор') || (userRole === 'designer' && msg.author === 'Дизайнер');
-            
-            // 🟢 Форматируем время в красивый вид (например: 14:35)
             const timeString = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
             return (
               <div key={msg.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-                 
-                 {/* Шапка сообщения: Имя + Тэг комнаты */}
                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: '6px' }}>
-                    {isMe && msg.room_title && (
-                      <span style={{ background: '#222', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: '#aaa', border: '1px solid #333', whiteSpace: 'nowrap' }}>
-                        {msg.room_title}
-                      </span>
-                    )}
+                    {isMe && msg.room_title && ( <span style={{ background: '#222', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: '#aaa', border: '1px solid #333' }}>{msg.room_title}</span> )}
                     <span style={{ fontSize: '0.8rem', color: '#888' }}>{msg.author}</span>
-                    {!isMe && msg.room_title && (
-                      <span style={{ background: '#222', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: '#aaa', border: '1px solid #333', whiteSpace: 'nowrap' }}>
-                        {msg.room_title}
-                      </span>
-                    )}
+                    {!isMe && msg.room_title && ( <span style={{ background: '#222', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: '#aaa', border: '1px solid #333' }}>{msg.room_title}</span> )}
                  </div>
-
-                 {/* Текст сообщения */}
-                 <div style={{ 
-                    background: isMe ? '#00ff88' : '#222', 
-                    color: isMe ? '#000' : '#fff', 
-                    padding: '12px 16px', 
-                    borderRadius: '12px', 
-                    borderBottomRightRadius: isMe ? '2px' : '12px', 
-                    borderBottomLeftRadius: isMe ? '12px' : '2px',
-                    fontSize: '0.95rem',
-                    lineHeight: '1.4'
-                 }}>
-                    {msg.text}
-                 </div>
-
-                 {/* Время под сообщением */}
-                 <div style={{ fontSize: '0.7rem', color: '#555', marginTop: '4px', textAlign: isMe ? 'right' : 'left' }}>
-                    {timeString}
-                 </div>
+                 <div style={{ background: isMe ? '#00ff88' : '#222', color: isMe ? '#000' : '#fff', padding: '12px 16px', borderRadius: '12px', borderBottomRightRadius: isMe ? '2px' : '12px', borderBottomLeftRadius: isMe ? '12px' : '2px', fontSize: '0.95rem', lineHeight: '1.4' }}>{msg.text}</div>
+                 <div style={{ fontSize: '0.7rem', color: '#555', marginTop: '4px', textAlign: isMe ? 'right' : 'left' }}>{timeString}</div>
               </div>
             );
           })}
           <div ref={messagesEndRef} />
         </div>
-
         <div style={{ padding: '20px', borderTop: '1px solid #333', background: '#111', display: 'flex', gap: '10px' }}>
-          <input 
-            type="text" value={newMessage} onChange={(e)=>setNewMessage(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} 
-            placeholder="Написать сообщение..." 
-            style={{ flex: 1, background: '#222', border: '1px solid #444', color: '#fff', padding: '12px 15px', borderRadius: '8px', outline: 'none', fontSize: '0.95rem' }} 
-          />
-          <button onClick={handleSendMessage} style={{ background: '#00ff88', color: '#000', border: 'none', width: '45px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}>
-            <Send size={20} />
-          </button>
+          <input type="text" value={newMessage} onChange={(e)=>setNewMessage(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} placeholder="Сообщение..." style={{ flex: 1, background: '#222', border: '1px solid #444', color: '#fff', padding: '12px 15px', borderRadius: '8px', outline: 'none' }} />
+          <button onClick={handleSendMessage} style={{ background: '#00ff88', color: '#000', border: 'none', width: '45px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={20} /></button>
         </div>
       </div>
-      {/* ========================================== */}
-
 
       {viewingImage && (
         <div onClick={() => setViewingImage(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
-          <img src={viewingImage} alt="Fullscreen View" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }} />
-          <button style={{ position: 'absolute', top: '30px', right: '30px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: '0.2s' }}><X size={24} /></button>
+          <img src={viewingImage} alt="Fullscreen View" style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: '8px' }} />
+          <button style={{ position: 'absolute', top: isMobile ? '10px' : '30px', right: isMobile ? '10px' : '30px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={20} /></button>
         </div>
       )}
 
-      {/* ШАПКА */}
-      <div style={{ padding: '15px 20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0a0a0a', zIndex: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
-          <button onClick={() => navigate(projectData ? `/project/${projectData.id}` : '/')} style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px' }}><ArrowLeft size={20} /></button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#888', fontSize: '0.9rem' }}>
-            {!isDesigner && designerData && (<><span style={{ cursor: 'pointer', color: '#888' }}>{designerData.name}</span><span>/</span></>)}
-            {projectData && (<><span style={{ cursor: 'pointer', color: '#888' }}>{projectData.title}</span><span>/</span></>)}
-            {roomData && (<span style={{ fontWeight: '600', color: '#fff' }}>{roomData.title}</span>)}
+      {/* 🟢 НОВАЯ КОМПАКТНАЯ ШАПКА (1 строка) */}
+      <div style={{ padding: '10px 15px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0a0a0a', zIndex: 20 }}>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', flex: 1, paddingRight: '15px' }}>
+          <button onClick={() => navigate(projectData ? `/project/${projectData.id}` : '/')} style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', padding: 0, flexShrink: 0 }}><ArrowLeft size={isMobile ? 24 : 20} /></button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#888', fontSize: isMobile ? '1rem' : '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            {/* Имя дизайнера показываем только на ПК */}
+            {!isMobile && !isDesigner && designerData && (<><span style={{ cursor: 'pointer', flexShrink: 0 }}>{designerData.name}</span><span style={{flexShrink: 0}}>/</span></>)}
+            
+            {/* 🟢 Название проекта: вернули на мобилку. Если длинное — обрежется троеточием */}
+            {projectData && (
+              <>
+                <span style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? '110px' : 'none', display: 'inline-block', verticalAlign: 'bottom' }}>
+                  {projectData.title}
+                </span>
+                <span style={{flexShrink: 0}}>/</span>
+              </>
+            )}
+            
+            {/* Название комнаты */}
+            {roomData && (<span style={{ fontWeight: '600', color: '#fff', textOverflow: 'ellipsis', overflow: 'hidden', flexShrink: 1 }}>{roomData.title}</span>)}
           </div>
         </div>
 
-        {!roomData?.is_general && (
-          <div style={{ display: 'flex', background: '#1a1a1a', padding: '4px', borderRadius: '8px', border: '1px solid #333' }}>
-            <button onClick={() => setActiveTab('tz')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: '6px', background: activeTab === 'tz' ? '#333' : 'transparent', color: activeTab === 'tz' ? '#fff' : '#888', border: 'none', cursor: 'pointer', fontWeight: '500', transition: '0.2s', fontSize: '0.9rem' }}><FileText size={16} /> Локальное ТЗ</button>
-            <button onClick={() => setActiveTab('renders')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: '6px', background: activeTab === 'renders' ? '#333' : 'transparent', color: activeTab === 'renders' ? '#fff' : '#888', border: 'none', cursor: 'pointer', fontWeight: '500', transition: '0.2s', fontSize: '0.9rem' }}><ImageIcon size={16} /> Рендеры и правки</button>
-          </div>
-        )}
-
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '15px', alignItems: 'center' }}>
-          {activeTab === 'tz' && (
-            <button onClick={() => handleSaveTz(false)} disabled={saveStatus === 'saving'} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: saveStatus === 'saved' ? '#00ff88' : '#fff', color: '#000', border: 'none', borderRadius: '4px', cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold', transition: '0.3s' }}>
-              {saveStatus === 'saving' && <Loader2 size={16} style={{ animation: 'spin 2s linear infinite' }} />}
-              {saveStatus === 'saved' && <Check size={16} />}
-              {saveStatus === 'idle' && <Save size={16} />}
-              {saveStatus === 'saving' && 'Сохранение...'}
-              {saveStatus === 'saved' && 'Сохранено'}
-              {saveStatus === 'idle' && 'Сохранить ТЗ'}
-            </button>
+        <div style={{ display: 'flex', gap: isMobile ? '15px' : '20px', alignItems: 'center' }}>
+          {!roomData?.is_general && (
+            <>
+              <button onClick={() => setActiveTab('tz')} style={{ color: activeTab === 'tz' ? '#00ff88' : '#888', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }} title="Локальное ТЗ"><FileText size={isMobile ? 24 : 20} /></button>
+              <button onClick={() => setActiveTab('renders')} style={{ color: activeTab === 'renders' ? '#00ff88' : '#888', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }} title="Рендеры"><ImageIcon size={isMobile ? 24 : 20} /></button>
+            </>
           )}
-
           {activeTab === 'renders' && !isDesigner && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: isUploading ? '#111' : '#222', color: isUploading ? '#555' : 'white', border: '1px solid #444', borderRadius: '4px', cursor: isUploading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
-              {isUploading ? <Loader2 size={16} style={{ animation: 'spin 2s linear infinite' }} /> : <Upload size={16} />} Загрузить рендер
+            <label style={{ color: isUploading ? '#555' : '#fff', cursor: isUploading ? 'not-allowed' : 'pointer', margin: 0, padding: 0, display: 'flex' }} title="Загрузить рендер">
+              {isUploading ? <Loader2 size={isMobile ? 24 : 20} style={{ animation: 'spin 2s linear infinite' }} /> : <Upload size={isMobile ? 24 : 20} />}
               <input type="file" multiple hidden onChange={handleFileUpload} accept="image/*" disabled={isUploading} />
             </label>
           )}
-
-          {/* 🟢 КНОПКА ОТКРЫТИЯ ЧАТА (С уведомлениями) */}
-          <button 
-            onClick={() => {
-              setIsChatOpen(!isChatOpen); // Открываем/закрываем чат
-              setUnreadCount(0);          // 🔴 Сбрасываем красный бейдж!
-            }} 
-            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: isChatOpen ? '#333' : '#1a1a1a', color: '#00ff88', border: '1px solid #333', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', transition: '0.2s' }}
-          >
-            <MessageCircle size={18} /> Чат проекта
-            
-            {/* Красный кружочек с цифрой (показывается только если больше 0) */}
-            {unreadCount > 0 && (
-              <span style={{ 
-                position: 'absolute', top: '-8px', right: '-8px', 
-                background: '#ff0044', color: '#fff', fontSize: '11px', fontWeight: 'bold', 
-                minWidth: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                borderRadius: '10px', border: '2px solid #0a0a0a', boxShadow: '0 2px 5px rgba(255,0,68,0.4)' 
-              }}>
-                {unreadCount}
-              </span>
-            )}
+          <button onClick={() => { setIsChatOpen(!isChatOpen); setUnreadCount(0); }} style={{ color: isChatOpen ? '#00ff88' : '#fff', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', position: 'relative', display: 'flex' }} title="Чат проекта">
+            <MessageCircle size={isMobile ? 24 : 20} />
+            {unreadCount > 0 && ( <span style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ff0044', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid #0a0a0a' }} /> )}
           </button>
         </div>
       </div>
 
-      {/* РАБОЧАЯ ОБЛАСТЬ */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ display: 'flex', flexDirection: 'row', flex: 1, overflow: 'hidden', position: 'relative' }}>
         
         {isComparing && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: '#0a0a0a', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', background: '#111', borderBottom: '1px solid #333' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', padding: '15px 20px', background: '#111', borderBottom: '1px solid #333', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                 <span style={{ color: '#888', fontWeight: 'bold', fontSize: '0.9rem' }}>БЫЛО:</span>
-                <select value={compareLeft?.id || ''} onChange={(e) => setCompareLeft(renders.find(r => r.id === e.target.value))} style={{ background: '#222', color: '#fff', border: '1px solid #444', padding: '8px 12px', borderRadius: '6px', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <select value={compareLeft?.id || ''} onChange={(e) => setCompareLeft(renders.find(r => r.id === e.target.value))} style={{ flex: 1, background: '#222', color: '#fff', border: '1px solid #444', padding: '8px 12px', borderRadius: '6px' }}>
                   {renders.map(r => <option key={`left-${r.id}`} value={r.id}>{getRenderName(r)}</option>)}
                 </select>
               </div>
-              <button onClick={() => setIsComparing(false)} style={{ background: '#333', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', transition: '0.2s' }}><X size={18} /> Закрыть сравнение</button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <button onClick={() => setIsComparing(false)} style={{ order: isMobile ? 3 : 2, background: '#333', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}><X size={18} /> Закрыть</button>
+              <div style={{ order: isMobile ? 2 : 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                 <span style={{ color: '#00ff88', fontWeight: 'bold', fontSize: '0.9rem' }}>СТАЛО:</span>
-                <select value={compareRight?.id || ''} onChange={(e) => setCompareRight(renders.find(r => r.id === e.target.value))} style={{ background: '#222', color: '#fff', border: '1px solid #444', padding: '8px 12px', borderRadius: '6px', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <select value={compareRight?.id || ''} onChange={(e) => setCompareRight(renders.find(r => r.id === e.target.value))} style={{ flex: 1, background: '#222', color: '#fff', border: '1px solid #444', padding: '8px 12px', borderRadius: '6px' }}>
                   {renders.map(r => <option key={`right-${r.id}`} value={r.id}>{getRenderName(r)}</option>)}
                 </select>
               </div>
@@ -685,32 +795,35 @@ export default function Workspace() {
               {compareLeft && <img src={compareLeft.image_url} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', clipPath: `polygon(0 0, ${sliderPos}% 0, ${sliderPos}% 100%, 0 100%)` }} alt="Before" />}
               <input type="range" min="0" max="100" value={sliderPos} onChange={(e) => setSliderPos(e.target.value)} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'ew-resize', zIndex: 10 }} />
               <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${sliderPos}%`, width: '2px', background: '#00ff88', pointerEvents: 'none', zIndex: 5 }}>
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '40px', height: '40px', background: '#00ff88', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
-                  <ArrowLeftRight size={20} color="#000" />
-                </div>
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '40px', height: '40px', background: '#00ff88', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeftRight size={20} color="#000" /></div>
               </div>
             </div>
           </div>
         )}
 
         {activeTab === 'tz' ? (
-          
-          <div style={{ flex: 1, padding: '30px', overflowY: 'auto' }}>
-            <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: '30px' }}>
-              <div style={{ flex: '1 1 600px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
-                <div style={{ background: '#111', padding: '25px', borderRadius: '12px', border: '1px solid #333' }}>
-                  <h3 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><FileText size={20} color="#00ff88" /> Базовое описание</h3>
-                  <textarea placeholder="Подробно опишите задачу..." value={tzDescription} onChange={(e) => setTzDescription(e.target.value)} style={{ width: '100%', padding: '15px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white', boxSizing: 'border-box', minHeight: '400px', resize: 'vertical', fontFamily: 'inherit', fontSize: '0.95rem', lineHeight: '1.6' }} />
-                </div>
-                <div onDragOver={handleFilesDragOver} onDragLeave={handleFilesDragLeave} onDrop={handleFilesDrop} style={{ background: '#111', padding: '25px', borderRadius: '12px', border: isDraggingFiles ? '2px dashed #00ff88' : '1px solid #333', transition: '0.2s' }}>
+          <div style={{ flex: 1, padding: isMobile ? '15px' : '30px', overflowY: 'auto' }}>
+            <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: isMobile ? '15px' : '30px' }}>
+              <div style={{ flex: '1 1 600px', display: 'flex', flexDirection: 'column', gap: isMobile ? '15px' : '25px' }}>
+                <div style={{ background: '#111', padding: isMobile ? '15px' : '25px', borderRadius: '12px', border: '1px solid #333' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><FileArchive size={20} color="#00ff88" /> Чертежи и документы</h3>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: isUploadingFiles ? 'not-allowed' : 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                      {isUploadingFiles ? <Loader2 size={16} style={{ animation: 'spin 2s linear infinite' }} /> : <Plus size={16} />} Загрузить файл
+                     <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><FileText size={20} color="#00ff88" /> Описание</h3>
+                     <button onClick={() => handleSaveTz(false)} disabled={saveStatus === 'saving'} style={{ background: saveStatus === 'saved' ? '#00ff88' : '#222', color: saveStatus === 'saved' ? '#000' : '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                       {saveStatus === 'saving' ? '...' : saveStatus === 'saved' ? 'Сохранено' : 'Сохранить'}
+                     </button>
+                  </div>
+                  <textarea placeholder="Подробно опишите задачу..." value={tzDescription} onChange={(e) => setTzDescription(e.target.value)} style={{ width: '100%', padding: '15px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white', boxSizing: 'border-box', minHeight: '300px', resize: 'vertical', fontFamily: 'inherit', fontSize: '0.95rem' }} />
+                </div>
+                
+                <div onDragOver={handleFilesDragOver} onDragLeave={handleFilesDragLeave} onDrop={handleFilesDrop} style={{ background: '#111', padding: isMobile ? '15px' : '25px', borderRadius: '12px', border: isDraggingFiles ? '2px dashed #00ff88' : '1px solid #333' }}>
+                  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', marginBottom: '15px', gap: '10px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><FileArchive size={20} color="#00ff88" /> Документы</h3>
+                    <label style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: isUploadingFiles ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                      {isUploadingFiles ? <Loader2 size={16} style={{ animation: 'spin 2s linear infinite' }} /> : <Plus size={16} />} Загрузить
                       <input type="file" multiple hidden onChange={handleTzFilesUpload} disabled={isUploadingFiles} />
                     </label>
                   </div>
-                  {isUploadingFiles ? ( <div style={{ padding: '30px', textAlign: 'center', color: '#00ff88' }}><Loader2 size={32} style={{ animation: 'spin 1.5s linear infinite', margin: '0 auto 10px' }} /><p style={{ margin: 0 }}>Загружаем файлы...</p></div> ) : tzFiles.length > 0 ? (
+                  {isUploadingFiles ? ( <div style={{ padding: '20px', textAlign: 'center', color: '#00ff88' }}><Loader2 size={32} style={{ animation: 'spin 1.5s linear infinite', margin: '0 auto 10px' }} /></div> ) : tzFiles.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {tzFiles.map((file, idx) => (
                         <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1a1a1a', padding: '12px 15px', borderRadius: '8px', border: '1px solid #333' }}>
@@ -718,137 +831,99 @@ export default function Workspace() {
                             <FileArchive size={24} color="#aaa" style={{ flexShrink: 0 }} />
                             <div style={{ overflow: 'hidden' }}>
                               <div style={{ fontWeight: '600', fontSize: '0.95rem', color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{file.name}</div>
-                              <div style={{ fontSize: '0.8rem', color: '#666' }}>{file.size} MB</div>
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" style={{ background: '#222', color: '#fff', padding: '6px 12px', borderRadius: '6px', textDecoration: 'none', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}><Download size={14} /></a>
-                            <button onClick={() => handleRemoveTzFile(idx)} style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }}><Trash2 size={18} /></button>
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" style={{ background: '#222', color: '#fff', padding: '6px 10px', borderRadius: '6px' }}><Download size={14} /></a>
+                            <button onClick={() => handleRemoveTzFile(idx)} style={{ background: 'transparent', border: 'none', color: '#888' }}><Trash2 size={18} /></button>
                           </div>
                         </div>
                       ))}
                     </div>
-                  ) : ( <div style={{ padding: '30px', textAlign: 'center', border: '2px dashed #222', borderRadius: '8px', color: '#555', backgroundColor: isDraggingFiles ? 'rgba(0, 255, 136, 0.05)' : 'transparent' }}><p style={{ margin: 0, fontSize: '0.95rem', color: isDraggingFiles ? '#00ff88' : '#666' }}>Перетащите сюда PDF, DWG или архивы</p></div> )}
+                  ) : ( <div style={{ padding: '20px', textAlign: 'center', border: '2px dashed #222', borderRadius: '8px' }}><p style={{ margin: 0, color: '#666' }}>Перетащите сюда файлы</p></div> )}
                 </div>
-                <div style={{ background: '#111', padding: '25px', borderRadius: '12px', border: '1px solid #333' }}>
-                  <h3 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <LinkIcon size={20} color="#00ff88" /> Спецификация ссылок
-                  </h3>
-                  
-                  {/* 🟢 НОВЫЙ БЛОК: База моделей (быстрые ссылки) */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#888', marginRight: '5px' }}>Базы моделей:</span>
-                    {[
-                      { name: '3ddd', url: 'https://3ddd.ru/' },
-                      { name: 'CGKit', url: 'https://cgkit.pro/catalog/producers' }
-                    ].map(site => (
-                      <a 
-                        key={site.name} 
-                        href={site.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        style={{ background: '#1a1a1a', border: '1px solid #444', padding: '6px 12px', borderRadius: '6px', color: '#00ff88', textDecoration: 'none', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500', transition: '0.2s' }}
-                      >
-                        {site.name} <ExternalLink size={14} />
-                      </a>
-                    ))}
-                  </div>
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
-                    <input type="text" placeholder="Название (напр: Стул)" value={newLinkTitle} onChange={(e) => setNewLinkTitle(e.target.value)} style={{ flex: '1 1 150px', padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white', boxSizing: 'border-box' }} />
-                    <input type="text" placeholder="URL ссылка (https://...)" value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddLink()} style={{ flex: '2 1 200px', padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white', boxSizing: 'border-box' }} />
-                    <button onClick={handleAddLink} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 20px', height: '42px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}><Plus size={18} /> Добавить</button>
+                <div style={{ background: '#111', padding: isMobile ? '15px' : '25px', borderRadius: '12px', border: '1px solid #333' }}>
+                  <h3 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><LinkIcon size={20} color="#00ff88" /> Ссылки</h3>
+                  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
+                    <input type="text" placeholder="Название" value={newLinkTitle} onChange={(e) => setNewLinkTitle(e.target.value)} style={{ flex: 1, padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white' }} />
+                    <input type="text" placeholder="URL ссылка" value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddLink()} style={{ flex: 2, padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white' }} />
+                    <button onClick={handleAddLink} style={{ padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px', fontWeight: 'bold' }}><Plus size={18} /></button>
                   </div>
-                  
-                  {tzLinks.length > 0 ? (
+                  {tzLinks.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {tzLinks.map((link, index) => (
                         <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1a1a1a', padding: '12px 15px', borderRadius: '8px', border: '1px solid #333' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
                             <span style={{ fontWeight: '600', fontSize: '0.95rem', color: '#fff' }}>{link.title}</span>
-                            <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ color: '#00ff88', textDecoration: 'none', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{link.url}</a>
+                            <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ color: '#00ff88', textDecoration: 'none', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{link.url}</a>
                           </div>
-                          <button onClick={() => handleRemoveLink(index)} style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', padding: '5px' }}><Trash2 size={18} /></button>
+                          <button onClick={() => handleRemoveLink(index)} style={{ background: 'transparent', border: 'none', color: '#888' }}><Trash2 size={18} /></button>
                         </div>
                       ))}
                     </div>
-                  ) : <p style={{ color: '#666', margin: 0, fontSize: '0.9rem' }}>Добавьте ссылки на модели или магазины.</p>}
+                  )}
                 </div>
               </div>
 
-              <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column' }}>
-                <div onDragOver={handleTzDragOver} onDragLeave={handleTzDragLeave} onDrop={handleTzDrop} style={{ background: '#111', padding: '25px', borderRadius: '12px', border: isDraggingTz ? '2px dashed #00ff88' : '1px solid #333', flex: 1, display: 'flex', flexDirection: 'column', transition: '0.2s', position: 'relative' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><ImagePlus size={20} color="#00ff88" /> Мудборд и референсы</h3>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: isUploadingTz ? 'not-allowed' : 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
+              <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column' }}>
+                <div onDragOver={handleTzDragOver} onDragLeave={handleTzDragLeave} onDrop={handleTzDrop} style={{ background: '#111', padding: isMobile ? '15px' : '25px', borderRadius: '12px', border: isDraggingTz ? '2px dashed #00ff88' : '1px solid #333', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', marginBottom: '20px', gap: '10px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><ImagePlus size={20} color="#00ff88" /> Мудборд</h3>
+                    <label style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: isUploadingTz ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
                       {isUploadingTz ? <Loader2 size={16} style={{ animation: 'spin 2s linear infinite' }} /> : <Plus size={16} />} Добавить
                       <input type="file" multiple hidden onChange={handleTzImageUpload} accept="image/*" disabled={isUploadingTz} />
                     </label>
                   </div>
-                  {isUploadingTz ? ( <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#00ff88' }}><Loader2 size={48} style={{ animation: 'spin 1.5s linear infinite', marginBottom: '15px' }} /><p>Загружаем...</p></div> ) : tzImages.length > 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+                  {isUploadingTz ? ( <div style={{ flex: 1, display: 'flex', justifyContent: 'center', color: '#00ff88', padding: '40px' }}><Loader2 size={48} style={{ animation: 'spin 1.5s linear infinite' }} /></div> ) : tzImages.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '140px' : '200px'}, 1fr))`, gap: '15px' }}>
                       {tzImages.map((img, idx) => (
-                        <div key={idx} style={{ background: '#1a1a1a', borderRadius: '8px', border: '1px solid #333', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                          <div style={{ position: 'relative', height: '160px', width: '100%', cursor: 'zoom-in' }} onClick={() => setViewingImage(img.url)}>
+                        <div key={idx} style={{ background: '#1a1a1a', borderRadius: '8px', border: '1px solid #333', overflow: 'hidden' }}>
+                          <div style={{ position: 'relative', height: isMobile ? '120px' : '160px', width: '100%' }} onClick={() => setViewingImage(img.url)}>
                             <img src={img.url} alt={`ref-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <a href={img.url} target="_blank" rel="noopener noreferrer" download onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: '8px', right: '45px', background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}><Download size={14} /></a>
-                            <button onClick={(e) => { e.stopPropagation(); handleRemoveTzImage(idx); }} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={16} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); handleRemoveTzImage(idx); }} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={16} /></button>
                           </div>
                           <input type="text" placeholder="Комментарий" value={img.note} onChange={(e) => handleUpdateImageNote(idx, e.target.value)} style={{ padding: '10px', background: 'transparent', border: 'none', borderTop: '1px solid #333', color: 'white', width: '100%', boxSizing: 'border-box', fontSize: '0.85rem' }} />
                         </div>
                       ))}
                     </div>
-                  ) : ( <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', border: '2px dashed #222', borderRadius: '8px', color: '#555', backgroundColor: isDraggingTz ? 'rgba(0, 255, 136, 0.05)' : 'transparent' }}><ImageIcon size={64} style={{ marginBottom: '15px', color: isDraggingTz ? '#00ff88' : '#333' }} /><p style={{ margin: 0, fontSize: '1.1rem', color: isDraggingTz ? '#00ff88' : '#555' }}>Перетащите картинки сюда</p></div> )}
+                  ) : ( <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', border: '2px dashed #222', borderRadius: '8px' }}><ImageIcon size={48} style={{ marginBottom: '15px', color: '#333' }} /><p style={{ margin: 0, color: '#555' }}>Перетащите картинки</p></div> )}
                 </div>
               </div>
             </div>
           </div>
-
         ) : (
-
-          /* === ВКЛАДКА РЕНДЕРОВ === */
+          /* === 🟢 ВКЛАДКА РЕНДЕРОВ === */
           <>
             <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              
+              {/* 🟢 ИТЕРАЦИИ (Скроллируемая строка) */}
               {renders.length > 0 && (
-                <div style={{ padding: '10px 20px', display: 'flex', gap: '10px', background: '#0a0a0a', borderBottom: '1px solid #333', alignItems: 'center' }}>
+                <div ref={iterationsContainerRef} style={{ padding: '10px', display: 'flex', gap: '10px', background: '#0a0a0a', borderBottom: '1px solid #333', alignItems: 'center', overflowX: 'auto', whiteSpace: 'nowrap', scrollBehavior: 'smooth' }}>
                   {Array.from(new Set(renders.map(r => r.version))).sort((a, b) => a - b).map(v => (
-                    // 🟢 Обновленный блок вкладки Итерации с крестиком
                     <div key={v} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                       <button 
                         onClick={() => { setActiveVersion(v); const firstOfVersion = renders.find(r => r.version === v); if (firstOfVersion) handleSelectRender(firstOfVersion); }} 
-                        style={{ 
-                          padding: '6px 12px', 
-                          paddingRight: (!isDesigner && activeVersion === v) ? '28px' : '12px', // Делаем отступ под крестик
-                          borderRadius: '4px', border: '1px solid #333', 
-                          background: activeVersion === v ? '#00ff88' : '#1a1a1a', 
-                          color: activeVersion === v ? '#000' : '#888', 
-                          cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', transition: '0.2s' 
-                        }}
+                        style={{ padding: '8px 16px', paddingRight: (!isDesigner && activeVersion === v) ? '32px' : '16px', borderRadius: '6px', border: '1px solid #333', background: activeVersion === v ? '#00ff88' : '#1a1a1a', color: activeVersion === v ? '#000' : '#888', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold', transition: '0.2s' }}
                       >
                         Итерация {v}
                       </button>
-                      
-                      {/* Крестик удаления (виден только Админу на активной вкладке) */}
                       {!isDesigner && activeVersion === v && (
-                        <div 
-                          onClick={(e) => { e.stopPropagation(); handleDeleteIteration(v); }}
-                          style={{ position: 'absolute', right: '6px', cursor: 'pointer', color: '#000', display: 'flex' }}
-                          title="Удалить всю итерацию"
-                        >
-                          <X size={16} />
-                        </div>
+                        <div onClick={(e) => { e.stopPropagation(); handleDeleteIteration(v); }} style={{ position: 'absolute', right: '8px', cursor: 'pointer', color: '#000' }}><X size={16} /></div>
                       )}
                     </div>
                   ))}
                   {!isDesigner && (
-                    <button onClick={handleCreateNewIteration} style={{ padding: '6px 12px', borderRadius: '4px', border: '1px dashed #555', background: 'transparent', color: '#aaa', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600', transition: '0.2s' }}>+ Новая итерация</button>
+                    <button onClick={handleCreateNewIteration} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px dashed #555', background: 'transparent', color: '#aaa', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>+ Новая</button>
                   )}
                 </div>
               )}
 
-              <div style={{ flex: 1, background: '#111', position: 'relative' }} onDragOver={!isDesigner ? handleDragOver : undefined} onDragLeave={!isDesigner ? handleDragLeave : undefined} onDrop={!isDesigner ? handleDrop : undefined}>
+              {/* 🟢 ХОЛСТ С КАРТИНКОЙ И ПРАВКАМИ */}
+              {/* touchAction - решает проблему мобильного зума при рисовании! */}
+              <div style={{ flex: 1, background: '#111', position: 'relative', touchAction: activeTool === 'cursor' ? 'auto' : 'none' }} onDragOver={!isDesigner ? handleDragOver : undefined} onDragLeave={!isDesigner ? handleDragLeave : undefined} onDrop={!isDesigner ? handleDrop : undefined}>
                 {isUploading ? (
-                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}><Loader2 size={64} color="#00ff88" style={{ animation: 'spin 1.5s linear infinite', marginBottom: '20px' }} /><h2 style={{ margin: 0, fontWeight: '400' }}>Отправляем в облако...</h2></div>
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}><Loader2 size={64} color="#00ff88" style={{ animation: 'spin 1.5s linear infinite', marginBottom: '20px' }} /></div>
                 ) : uploadedImage ? (
                   <>
                     <CanvasViewer 
@@ -858,22 +933,21 @@ export default function Workspace() {
                       onAddPin={handleAddPin} 
                       imageUrl={uploadedImage} 
                       initialLines={activeRender?.lines || []} 
-                      onSaveLines={handleSaveLines}
+                      onSaveLines={handleSaveLines} 
                       userRole={userRole} 
+                      /* 🟢 Передаем клик по пину наверх, чтобы открыть модалку */
+                      onPinClick={(id) => setActiveCommentId(id)}
+                      undoSignal={undoSignal}
                     />
+                    
                     {renders.filter(r => r.version === activeVersion).length > 0 && (
-                      <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', background: 'rgba(26, 26, 26, 0.9)', padding: '10px', borderRadius: '12px', border: '1px solid #444', zIndex: 30, boxShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
+                      <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', background: 'rgba(26, 26, 26, 0.9)', padding: '8px', borderRadius: '12px', border: '1px solid #444', zIndex: 10 }}>
                         {renders.filter(r => r.version === activeVersion).map((r, idx) => {
-                          // 🟢 Подменяем ссылку
-                          const safeThumbUrl = r.image_url ? r.image_url.replace(
-                            'https://bbaoigykxjsrgkthsuiu.supabase.co', 
-                            import.meta.env.VITE_SUPABASE_URL
-                          ) : '';
-
+                          const safeThumbUrl = r.image_url ? r.image_url.replace('https://bbaoigykxjsrgkthsuiu.supabase.co', import.meta.env.VITE_SUPABASE_URL) : '';
                           return (
-                            <div key={r.id} onClick={() => handleSelectRender(r)} style={{ width: '65px', height: '65px', borderRadius: '8px', overflow: 'hidden', border: activeRender?.id === r.id ? '2px solid #00ff88' : '2px solid #333', cursor: 'pointer', opacity: activeRender?.id === r.id ? 1 : 0.6, transition: '0.2s', position: 'relative' }}>
+                            <div key={r.id} onClick={() => handleSelectRender(r)} style={{ width: isMobile ? '50px' : '65px', height: isMobile ? '50px' : '65px', borderRadius: '8px', overflow: 'hidden', border: activeRender?.id === r.id ? '2px solid #00ff88' : '2px solid #333', cursor: 'pointer', opacity: activeRender?.id === r.id ? 1 : 0.6 }}>
                               <img src={safeThumbUrl} alt="render" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '9px', textAlign: 'center', padding: '2px 0' }}>Ракурс {idx + 1}</div>
+                              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '9px', textAlign: 'center' }}>Р. {idx + 1}</div>
                             </div>
                           );
                         })}
@@ -882,152 +956,192 @@ export default function Workspace() {
                   </>
                 ) : (
                   <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: !isDesigner && isDragging ? '2px dashed #00ff88' : '2px dashed #222', backgroundColor: !isDesigner && isDragging ? 'rgba(0, 255, 136, 0.05)' : 'transparent', margin: '20px', borderRadius: '15px' }}>
-                    {!isDesigner ? ( <> <Upload size={56} color={isDragging ? "#00ff88" : "#333"} /> <p style={{ color: isDragging ? '#00ff88' : '#555', marginTop: '15px', fontSize: '1.1rem' }}>Перетащите сюда рендер или нажмите кнопку выше</p> </> ) : ( <> <ImageIcon size={56} color="#333" /> <p style={{ color: '#555', marginTop: '15px', fontSize: '1.1rem' }}>Визуализатор еще не загрузил рендеры для этой комнаты.</p> </> )}
+                    {!isDesigner ? ( <> <Upload size={56} color={isDragging ? "#00ff88" : "#333"} /> <p style={{ color: isDragging ? '#00ff88' : '#555', marginTop: '15px' }}>Перетащите сюда рендер</p> </> ) : ( <> <ImageIcon size={56} color="#333" /> <p style={{ color: '#555', marginTop: '15px', textAlign: 'center' }}>Рендеры еще не загружены.</p> </> )}
                   </div>
                 )}
               </div>
 
+              {/* 🟢 ПАНЕЛЬ ИНСТРУМЕНТОВ (Возвращена НАЛЕВО и для мобилок, и для ПК) */}
               {uploadedImage && !isUploading && (
-                <div style={{ position: 'absolute', left: '20px', top: '140px', display: 'flex', flexDirection: 'column', gap: '5px', background: '#1a1a1a', padding: '8px', borderRadius: '8px', border: '1px solid #333', zIndex: 20 }}>
-                  <button style={getBtnStyle('cursor')} onClick={() => setActiveTool('cursor')} title="Перемещение"><MousePointer2 size={20} /></button>
-                  {/* 🟢 КНОПКА УДАЛЕНИЯ ТЕКУЩЕГО РАКУРСА (Только для Визуализатора) */}
-                  {!isDesigner && (
-                    <button 
-                      style={{ background: 'transparent', border: 'none', color: '#ff0044', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: '0.2s', display: 'flex', justifyContent: 'center' }} 
-                      onClick={handleDeleteRender} 
-                      title="Удалить текущий ракурс"cd hub-app
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  )}
-                  {/* Если утверждено - кнопка пина становится серой и неактивной */}
-                  <button 
-                    style={{ ...getBtnStyle('pin'), opacity: activeRender?.status === 'Утверждено' ? 0.3 : 1, cursor: activeRender?.status === 'Утверждено' ? 'not-allowed' : 'pointer' }} 
-                    onClick={() => activeRender?.status !== 'Утверждено' && setActiveTool('pin')} 
-                    title={activeRender?.status === 'Утверждено' ? "Ракурс утвержден (правки заблокированы)" : "Поставить правку"}
-                  >
-                    <MessageSquare size={20} />
-                  </button>
+                <div style={{
+                  position: 'absolute',
+                  left: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '5px', background: 'rgba(26,26,26,0.9)', padding: '6px', borderRadius: '8px', border: '1px solid #444', zIndex: 20
+                }}>
+                  <button style={getBtnStyle('cursor')} onClick={() => setActiveTool('cursor')}><MousePointer2 size={20} /></button>
+                  {!isDesigner && ( <button style={{ background: 'transparent', border: 'none', color: '#ff0044', padding: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }} onClick={handleDeleteRender}><Trash2 size={20} /></button> )}
+                  <button style={{ ...getBtnStyle('pin'), opacity: activeRender?.status === 'Утверждено' ? 0.3 : 1 }} onClick={() => activeRender?.status !== 'Утверждено' && setActiveTool('pin')}><MessageSquare size={20} /></button>
+                  <button style={{ ...getBtnStyle('draw'), opacity: activeRender?.status === 'Утверждено' ? 0.3 : 1 }} onClick={() => activeRender?.status !== 'Утверждено' && setActiveTool('draw')}><Pencil size={20} /></button>
+                  {/* 🟢 СЮДА ВСТАВЛЯЕМ НОВУЮ КНОПКУ ОТМЕНЫ */}
+<button 
+  onClick={handleUndoLine}
+  disabled={!activeRender || !activeRender.lines || activeRender.lines.length === 0 || activeRender?.status === 'Утверждено'}
+  title="Шаг назад (удалить последнюю линию)"
+  style={{ 
+    background: 'transparent', 
+    border: 'none', 
+    color: (!activeRender || !activeRender.lines || activeRender.lines.length === 0 || activeRender?.status === 'Утверждено') ? '#444' : '#fff', 
+    padding: '8px', 
+    cursor: (!activeRender || !activeRender.lines || activeRender.lines.length === 0 || activeRender?.status === 'Утверждено') ? 'default' : 'pointer', 
+    display: 'flex', 
+    justifyContent: 'center', 
+    transition: '0.2s' 
+  }}
+>
+  <Undo size={20} />
+</button>
+
+                  <div style={{ width: '100%', height: '1px', background: '#444', margin: '5px 0' }} />
                   
-                  <button 
-                    style={{ ...getBtnStyle('draw'), opacity: activeRender?.status === 'Утверждено' ? 0.3 : 1, cursor: activeRender?.status === 'Утверждено' ? 'not-allowed' : 'pointer' }} 
-                    onClick={() => activeRender?.status !== 'Утверждено' && setActiveTool('draw')} 
-                    title={activeRender?.status === 'Утверждено' ? "Ракурс утвержден" : "Карандаш"}
-                  >
-                    <Pencil size={20} />
-                  </button>
+                  <button style={{ background: 'transparent', border: 'none', color: '#fff', padding: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }} onClick={handleStartCompare}><ArrowLeftRight size={20} /></button>
+                  <button style={{ background: 'transparent', border: 'none', color: '#00ff88', padding: '8px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }} onClick={handleDownloadCleanImage}><Download size={20} /></button>
                   
-                  <div style={{ width: '100%', height: '1px', background: '#333', margin: '5px 0' }} />
+                  <div style={{ width: '100%', height: '1px', background: '#444', margin: '5px 0' }} />
                   
-                  <button style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: '0.2s', display: 'flex', justifyContent: 'center' }} onClick={handleStartCompare} title="Сравнить (Шторка)"><ArrowLeftRight size={20} /></button>
-                  <button style={{ background: 'transparent', border: 'none', color: '#00ff88', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: '0.2s', display: 'flex', justifyContent: 'center' }} onClick={handleDownloadCleanImage} title="Скачать чистый рендер"><Download size={20} /></button>
-                  
-                  <div style={{ width: '100%', height: '1px', background: '#333', margin: '5px 0' }} />
-                  
-                  {/* 🟢 КНОПКА "УТВЕРДИТЬ" (ПРОДАКШН ЛОГИКА) */}
                   {activeRender?.status === 'Утверждено' ? (
-                    <div style={{ background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', padding: '8px', borderRadius: '6px', display: 'flex', justifyContent: 'center', border: '1px solid #00ff88', cursor: 'default' }} title="Ракурс утвержден Дизайнером">
-                      <Check size={20} />
-                    </div>
+                    <div style={{ background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', padding: '8px', borderRadius: '6px', border: '1px solid #00ff88', display: 'flex', justifyContent: 'center' }}><Check size={20} /></div>
                   ) : (
-                    // Показываем кнопку согласования ТОЛЬКО дизайнеру
-                    isDesigner && (
-                      <button 
-                        style={{ background: '#00ff88', border: 'none', color: '#000', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: '0.2s', display: 'flex', justifyContent: 'center', boxShadow: '0 0 10px rgba(0, 255, 136, 0.3)' }} 
-                        onClick={handleApproveRender} 
-                        title="Утвердить ракурс (Блокирует правки)"
-                      >
-                        <Check size={20} />
-                      </button>
-                    )
+                    isDesigner && <button style={{ background: '#00ff88', color: '#000', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }} onClick={handleApproveRender}><Check size={20} /></button>
                   )}
                 </div>
               )}
             </div>
 
-            <div style={{ width: '350px', background: '#1a1a1a', borderLeft: '1px solid #333', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
-              <div style={{ padding: '20px', borderBottom: '1px solid #333' }}><h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '400' }}>Правки ({comments.length})</h3></div>
-              <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                {comments.map((comment) => {
-                  const isVis = comment.author === 'Визуализатор';
-                  const isResolved = comment.is_resolved; // Проверяем статус правки
-                  
-                  return (
-                    <div key={comment.id} style={{ 
-                      background: '#252525', 
-                      padding: '15px', 
-                      borderRadius: '8px', 
-                      position: 'relative', 
-                      borderLeft: isVis ? '3px solid #00ff88' : '3px solid transparent',
-                      opacity: isResolved ? 0.6 : 1, // Если выполнено - делаем чуть прозрачнее
-                      transition: '0.3s'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ 
-                            width: '24px', height: '24px', borderRadius: '50%', 
-                            background: isResolved ? '#555' : (isVis ? '#00ff88' : '#fff'), // Серая кнопка, если выполнено
-                            color: isResolved ? '#aaa' : '#000', 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' 
-                          }}>
-                            {comment.number}
+            {/* БОКОВОЙ БЛОК ПРАВОК - ПК ВЕРСИЯ */}
+            {!isMobile && (
+              <div style={{ width: '350px', background: '#1a1a1a', borderLeft: '1px solid #333', display: 'flex', flexDirection: 'column', zIndex: 20, flexShrink: 0 }}>
+                <div style={{ padding: '15px 20px', borderBottom: '1px solid #333' }}><h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '400' }}>Правки ({comments.length})</h3></div>
+                <div style={{ flex: 1, padding: '15px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {comments.map((comment) => {
+                    const isVis = comment.author === 'Визуализатор';
+                    const isResolved = comment.is_resolved;
+                    
+                    // 🟢 Проверяем, активна ли сейчас эта карточка
+                    const isActive = activeCommentId === comment.id;
+
+                    return (
+                      <div 
+                        key={comment.id} 
+                        onClick={() => setActiveCommentId(comment.id)} 
+                        style={{ background: '#252525', padding: '15px', borderRadius: '8px', borderLeft: isVis ? '3px solid #00ff88' : '3px solid transparent', border: isActive ? '1px solid #555' : '1px solid transparent', opacity: isResolved ? 0.6 : 1, cursor: isActive ? 'default' : 'pointer', transition: '0.2s' }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: isResolved ? '#555' : (isVis ? '#00ff88' : '#fff'), color: isResolved ? '#aaa' : '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>{comment.number}</div>
+                            <span style={{ fontSize: '0.9rem', color: isVis ? '#00ff88' : '#aaa', textDecoration: isResolved ? 'line-through' : 'none' }}>{comment.author || 'Дизайнер'}</span>
                           </div>
-                          <span style={{ 
-                            fontSize: '0.9rem', 
-                            color: isVis ? '#00ff88' : '#aaa', 
-                            fontWeight: isVis ? 'bold' : 'normal',
-                            textDecoration: isResolved ? 'line-through' : 'none' // Зачеркиваем имя, если выполнено
-                          }}>
-                            {comment.author || 'Дизайнер'}
-                          </span>
+                          <div style={{ display: 'flex', gap: '5px' }}>
+                            {!isDesigner && ( <button onClick={(e) => { e.stopPropagation(); handleToggleResolve(comment.id, isResolved); }} style={{ background: 'transparent', border: 'none', color: isResolved ? '#00ff88' : '#888', cursor: 'pointer' }}>{isResolved ? <CheckCircle2 size={18} /> : <Circle size={18} />}</button> )}
+                            {(!isDesigner || !isVis) && ( <button onClick={(e) => { e.stopPropagation(); handleDeleteComment(comment.id); setActiveCommentId(null); }} style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }}><Trash2 size={16} /></button> )}
+                          </div>
                         </div>
                         
-                        <div style={{ display: 'flex', gap: '5px' }}>
-                          {/* 🟢 КНОПКА "ВЫПОЛНЕНО" (Доступна только Визуализатору или админу) */}
-                          {(!isDesigner) && (
-                            <button 
-                              onClick={() => handleToggleResolve(comment.id, isResolved)} 
-                              style={{ background: 'transparent', border: 'none', color: isResolved ? '#00ff88' : '#888', cursor: 'pointer', padding: '0 5px' }}
-                              title={isResolved ? "Отметить как невыполненное" : "Отметить как выполненное"}
-                            >
-                              {isResolved ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-                            </button>
-                          )}
-                          
-                          {/* Кнопка удаления */}
-                          {(!isDesigner || !isVis) && ( 
-                            <button onClick={() => handleDeleteComment(comment.id)} style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', padding: '0 5px' }}>
-                              <Trash2 size={16} />
-                            </button> 
-                          )}
-                        </div>
+                        {/* 🟢 ЛОГИКА ВВОДА: Если карточка активна - показываем поле ввода, иначе - просто текст */}
+                        {isActive ? (
+                          <textarea 
+                            autoFocus={comment.text === ''}
+                            placeholder="Опишите правку..." 
+                            value={comment.text || ''} 
+                            onChange={(e) => handleTextChange(comment.id, e.target.value)} 
+                            onBlur={(e) => handleTextSave(comment.id, e.target.value)} 
+                            readOnly={isResolved} 
+                            style={{ width: '100%', padding: '10px', background: isResolved ? 'transparent' : '#111', border: isResolved ? 'none' : '1px solid #333', borderRadius: '6px', color: isResolved ? '#888' : 'white', boxSizing: 'border-box', minHeight: '80px', resize: 'vertical', fontSize: '0.9rem', outline: 'none', marginTop: '5px' }} 
+                          />
+                        ) : (
+                          <div style={{ color: isResolved ? '#888' : 'white', fontSize: '0.95rem', textDecoration: isResolved ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            {comment.text || 'Нет описания...'}
+                          </div>
+                        )}
                       </div>
-                      
-                      <textarea 
-                        autoFocus={comment.text === ''} 
-                        placeholder="Опишите правку..." 
-                        value={comment.text || ''} 
-                        onChange={(e) => handleTextChange(comment.id, e.target.value)} 
-                        onBlur={(e) => handleTextSave(comment.id, e.target.value)} 
-                        readOnly={isResolved} // Запрещаем редактировать текст выполненной правки
-                        style={{ 
-                          width: '100%', padding: '10px', 
-                          background: isResolved ? 'transparent' : '#111', // Убираем фон у выполненных
-                          border: isResolved ? 'none' : '1px solid #333', 
-                          borderRadius: '6px', color: isResolved ? '#888' : 'white', 
-                          boxSizing: 'border-box', minHeight: '60px', resize: 'vertical', fontFamily: 'inherit',
-                          textDecoration: isResolved ? 'line-through' : 'none' // Зачеркиваем текст
-                        }} 
-                      />
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>
 
+      {/* 🟢 НОВОЕ ВСПЛЫВАЮЩЕЕ ОКНО КОММЕНТАРИЯ (Показывается при клике на пин) */}
+      
+
+      {/* 🟢 Для Мобильных: ГОРИЗОНТАЛЬНАЯ КАРУСЕЛЬ ПРАВОК ВНИЗУ */}
+      {activeCommentId && isMobile && (
+        <div style={{
+          position: 'absolute',
+          bottom: '90px', // Поднято над миниатюрами ракурсов
+          left: 0, width: '100%', zIndex: 100,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          pointerEvents: 'none' // Чтобы клики мимо карточек пролетали насквозь в холст
+        }}>
+          
+          {/* Крестик закрытия панели правок */}
+          <button 
+            onClick={() => setActiveCommentId(null)} 
+            style={{ 
+              background: 'rgba(0,0,0,0.7)', border: '1px solid #444', color: '#fff', 
+              borderRadius: '50%', width: '36px', height: '36px', marginBottom: '10px', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              pointerEvents: 'auto', backdropFilter: 'blur(4px)'
+            }}
+          >
+            <X size={20} />
+          </button>
+
+          {/* Сам скроллящийся контейнер */}
+          <div style={{
+            display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory',
+            width: '100%', padding: '0 15px', gap: '15px', boxSizing: 'border-box',
+            pointerEvents: 'auto', paddingBottom: '10px'
+          }}>
+            {comments.map((comment) => {
+              const isVis = comment.author === 'Визуализатор';
+              const isResolved = comment.is_resolved;
+              
+              return (
+                <div 
+                  key={comment.id} 
+                  id={`comment-card-${comment.id}`} 
+                  onClick={() => setActiveCommentId(comment.id)}
+                  style={{
+                    flexShrink: 0, width: '85%', maxWidth: '320px', scrollSnapAlign: 'center',
+                    background: '#252525', padding: '15px', borderRadius: '16px',
+                    borderTop: isVis ? '4px solid #00ff88' : '4px solid transparent',
+                    boxShadow: '0 15px 35px rgba(0,0,0,0.5)', transition: '0.3s',
+                    opacity: activeCommentId === comment.id ? 1 : 0.6 // Неактивные карточки чуть прозрачные
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: isResolved ? '#555' : (isVis ? '#00ff88' : '#fff'), color: isResolved ? '#aaa' : '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>{comment.number}</div>
+                      <span style={{ fontSize: '1rem', fontWeight: 'bold', color: isVis ? '#00ff88' : '#aaa', textDecoration: isResolved ? 'line-through' : 'none' }}>{comment.author || 'Дизайнер'}</span>
+                    </div>
+                  </div>
+                  
+                  <textarea 
+                    autoFocus={comment.id === activeCommentId && comment.text === ''} 
+                    placeholder="Опишите правку..." 
+                    value={comment.text || ''} 
+                    onChange={(e) => handleTextChange(comment.id, e.target.value)} 
+                    onBlur={(e) => handleTextSave(comment.id, e.target.value)} 
+                    readOnly={isResolved} 
+                    style={{ width: '100%', padding: '12px', background: isResolved ? 'transparent' : '#111', border: isResolved ? 'none' : '1px solid #333', borderRadius: '8px', color: isResolved ? '#888' : 'white', boxSizing: 'border-box', minHeight: '80px', resize: 'none', fontSize: '0.95rem', textDecoration: isResolved ? 'line-through' : 'none', outline: 'none' }} 
+                  />
+                  
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                    {!isDesigner && ( <button onClick={() => handleToggleResolve(comment.id, isResolved)} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid #444', padding: '6px 10px', borderRadius: '8px', color: isResolved ? '#00ff88' : '#888', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{isResolved ? <CheckCircle2 size={16} /> : <Circle size={16} />} {isResolved ? 'Выполнено' : 'Не выполнено'}</button> )}
+                    {(!isDesigner || !isVis) && ( <button onClick={() => { handleDeleteComment(comment.id); setActiveCommentId(null); }} style={{ background: 'rgba(255, 77, 77, 0.1)', border: '1px solid rgba(255, 77, 77, 0.3)', padding: '6px 10px', borderRadius: '8px', color: '#ff4d4d', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={16} /></button> )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
