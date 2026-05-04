@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, Plus, Home, Loader2, FileText } from 'lucide-react';
+// 1. Добавь FileArchive сюда!
+import { ArrowLeft, ChevronRight, Plus, Home, Loader2, FileText, FileArchive } from 'lucide-react'; 
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
 import TiltCard from '../components/TiltCard';
@@ -10,21 +11,31 @@ export default function ProjectView() {
   const { id } = useParams(); 
 
   const [project, setProject] = useState(null);
-  
   const [generalRoom, setGeneralRoom] = useState(null); 
   const [rooms, setRooms] = useState([]); 
-
   const [loading, setLoading] = useState(true);
+
+  // 🟢 2. Добавляем состояние для пользователя
+  const [user, setUser] = useState(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newRoomTitle, setNewRoomTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingGeneral, setIsCreatingGeneral] = useState(false);
 
-  // 🟢 1. Добавляем слушатель ширины экрана для мобильной версии
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  // 🟢 3. Твоя проверка теперь будет работать, когда user подгрузится
+  const isVisualizer = user?.email === '3d_cross@mail.ru';
+
   useEffect(() => {
+    // 🟢 4. Получаем данные пользователя при загрузке
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+    };
+    fetchUser();
+
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -131,14 +142,29 @@ export default function ProjectView() {
       setIsCreatingGeneral(false);
     }
   };
+  // 🟢 Функция архивации проекта
+  // 🟢 1. Сначала вставь эту функцию ПЕРЕД словом return (над ним)
+  const handleArchiveProject = async () => {
+    if (!window.confirm("Отправить проект в архив?")) return;
+    
+    const { error } = await supabase
+      .from('projects')
+      .update({ is_archived: true })
+      .eq('id', project.id); 
 
+    if (error) {
+      console.error("Ошибка при архивации:", error);
+    } else {
+      window.location.reload(); 
+    }
+  };
+
+  // 🟢 2. А это сама верстка шапки (внутри return)
   return (
-    // 🟢 2. Меняем направление сетки: column для телефонов
     <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100vh', backgroundColor: '#0a0a0a', color: 'white', fontFamily: 'Manrope, sans-serif' }}>
       
       <Sidebar />
 
-      {/* 🟢 3. Уменьшаем отступы на мобилках до 20px */}
       <div style={{ flex: 1, padding: isMobile ? '20px' : '40px', overflowY: 'auto' }}>
         
         {loading ? (
@@ -151,13 +177,65 @@ export default function ProjectView() {
         ) : (
           <div style={{ maxWidth: '1200px' }}>
             
-            {/* 🟢 Шапка с навигацией: уменьшили шрифт заголовка для телефонов */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
-              <button onClick={() => navigate('/projects')} style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: '0.2s', padding: 0 }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = '#888'}>
-                <ArrowLeft size={isMobile ? 20 : 24} />
+            {/* --- НАЧАЛО ШАПКИ --- */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
+              
+              {/* Кнопка Назад */}
+              <button 
+                onClick={() => navigate('/projects')} 
+                style={{ 
+                  background: 'linear-gradient(145deg, #1a1a1a, #111)', 
+                  border: '1px solid #00ff88', 
+                  color: '#00ff88', 
+                  width: isMobile ? '36px' : '40px', 
+                  height: isMobile ? '36px' : '40px', 
+                  borderRadius: '10px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer', 
+                  padding: 0, 
+                  flexShrink: 0,
+                  boxShadow: '4px 4px 10px rgba(0,0,0,0.5), -2px -2px 10px rgba(255,255,255,0.02), 0 0 12px rgba(0, 255, 136, 0.4), inset 0 0 8px rgba(0, 255, 136, 0.15)' 
+                }}
+              >
+                <ArrowLeft size={20} strokeWidth={2.5} />
               </button>
-              <h1 style={{ margin: 0, fontSize: isMobile ? '1.4rem' : '1.8rem', fontWeight: '500' }}>{project.title}</h1>
+              
+              {/* Заголовок проекта */}
+              <h1 style={{ margin: 0, fontSize: isMobile ? '1.4rem' : '1.8rem', fontWeight: '500' }}>
+                {project.title}
+              </h1>
+
+              {/* Кнопка "Завершить" (только для тебя и если проект активен) */}
+              {isVisualizer && !project.is_archived && (
+                <button 
+                  onClick={handleArchiveProject}
+                  style={{ 
+                    display: 'flex', alignItems: 'center', gap: '8px', 
+                    background: 'rgba(255, 77, 77, 0.1)', border: '1px solid rgba(255, 77, 77, 0.3)', 
+                    color: '#ff4d4d', padding: '8px 16px', borderRadius: '8px', 
+                    cursor: 'pointer', transition: '0.3s', fontSize: '0.9rem',
+                    marginLeft: 'auto' 
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 77, 77, 0.2)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 77, 77, 0.1)' }}
+                >
+                  <FileArchive size={18} />
+                  Завершить
+                </button>
+              )}
+
+              {/* Статус "В архиве" (если проект завершен) */}
+              {project.is_archived && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', padding: '8px 16px', borderRadius: '8px', fontSize: '0.9rem', marginLeft: 'auto' }}>
+                  <FileArchive size={18} /> В архиве
+                </div>
+              )}
             </div>
+            {/* --- КОНЕЦ ШАПКИ --- */}
+
+            {/* Твой дальнейший код: БЛОК: ДОКУМЕНТАЦИЯ и т.д. */}
 
             {/* БЛОК: ДОКУМЕНТАЦИЯ (ОБЩЕЕ ТЗ) */}
             <div style={{ marginBottom: '40px' }}>
@@ -198,7 +276,7 @@ export default function ProjectView() {
 
             {/* БЛОК: ПОМЕЩЕНИЯ */}
             <h2 style={{ fontSize: '1.1rem', color: '#888', marginBottom: '15px', fontWeight: '400' }}>Помещения</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', paddingBottom: '120px' }}>
               
               {rooms.map((room) => (
                 <TiltCard 
@@ -292,7 +370,10 @@ export default function ProjectView() {
       {/* 🟢 4. ВСПЛЫВАЮЩЕЕ ОКНО: Адаптировано под мобилку */}
       {isModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)', padding: '20px' }}>
-          <div style={{ background: '#1a1a1a', padding: isMobile ? '20px' : '30px', borderRadius: '12px', width: '100%', maxWidth: '400px', border: '1px solid #333', boxSizing: 'border-box' }}>
+          
+          {/* 🟢 ДОБАВИЛИ maxHeight и overflowY: 'auto' сюда: */}
+          <div style={{ background: '#1a1a1a', padding: isMobile ? '20px' : '30px', borderRadius: '12px', width: '100%', maxWidth: '400px', border: '1px solid #333', boxSizing: 'border-box', maxHeight: '90dvh', overflowY: 'auto' }}>
+            
             <h2 style={{ margin: '0 0 20px 0', fontSize: '1.4rem' }}>Добавить помещение</h2>
             
             <label style={{ display: 'block', marginBottom: '25px' }}>

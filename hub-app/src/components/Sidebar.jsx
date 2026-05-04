@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Folder, Users, LogOut, Settings } from 'lucide-react';
+import { Folder, Users, LogOut, Globe, Settings } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,7 +9,6 @@ export default function Sidebar() {
   const location = useLocation();
   const { user } = useAuth();
 
-  // 🟢 Состояние для отслеживания мобильной версии
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -26,7 +25,6 @@ export default function Sidebar() {
     navigate('/auth');
   };
 
-  // Красивая подсветка для десктопа
   const getLinkStyle = (path) => {
     const isActive = location.pathname === path || (path === '/projects' && location.pathname.includes('/projects'));
     return {
@@ -44,13 +42,12 @@ export default function Sidebar() {
     };
   };
 
-  // Подсветка иконок для мобилки
   const getMobileIconStyle = (path) => {
     const isActive = location.pathname === path || (path === '/projects' && location.pathname.includes('/projects'));
     return {
       padding: '10px',
       borderRadius: '8px',
-      color: isActive ? '#00ff88' : '#888', // Зеленый акцент для активной вкладки
+      color: isActive ? '#00ff88' : '#888',
       background: isActive ? 'rgba(0, 255, 136, 0.1)' : 'transparent',
       cursor: 'pointer',
     };
@@ -59,48 +56,63 @@ export default function Sidebar() {
   const avatarLetter = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
 
   // ==========================================
-  // 📱 МОБИЛЬНАЯ ВЕРСИЯ (Верхняя шапка)
+  // 📱 МОБИЛЬНАЯ ВЕРСИЯ
   // ==========================================
   if (isMobile) {
     return (
       <div style={{ width: '100%', height: '60px', backgroundColor: '#111', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', boxSizing: 'border-box', zIndex: 100 }}>
         
-        {/* Логотип */}
-        <div style={{ fontSize: '1.2rem', fontWeight: '700', letterSpacing: '1px', cursor: 'pointer', color: '#fff' }} onClick={() => navigate('/')}>
-          3D\HUB
-        </div>
+        {/* Левый блок: Логотип и Навигация */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: '700', letterSpacing: '1px', cursor: 'pointer', color: '#fff' }} onClick={() => navigate('/')}>
+            3D\HUB
+          </div>
 
-        {/* Центральные иконки навигации */}
-        <div style={{ display: 'flex', gap: '5px' }}>
           {isVisualizer ? (
-            <div onClick={() => navigate('/')} style={getMobileIconStyle('/')} title="База дизайнеров">
+            <div onClick={() => navigate('/')} style={{ color: location.pathname === '/' ? '#00ff88' : '#888', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <Users size={22} />
             </div>
           ) : (
-            <div onClick={() => navigate('/projects')} style={getMobileIconStyle('/projects')} title="Мои проекты">
+            <div onClick={() => navigate('/projects')} style={{ color: location.pathname.includes('/projects') ? '#00ff88' : '#888', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <Folder size={22} />
             </div>
           )}
         </div>
 
-        {/* Правый блок: Аватарка, Настройки, Выход */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#fff', fontSize: '0.9rem' }}>
+        {/* 🟢 Правый блок: Иконки выровнены равномерно (gap: 15px) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          
+          {/* 1. Картинка сайта */}
+          <a href="https://3dcross.ru/" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', transition: '0.2s', opacity: 0.8 }} onMouseEnter={(e) => e.currentTarget.style.opacity = 1} onMouseLeave={(e) => e.currentTarget.style.opacity = 0.8} title="Перейти на 3dcross.ru">
+            <img 
+              src="https://www.google.com/s2/favicons?domain=3dcross.ru&sz=64" 
+              alt="3dcross" 
+              style={{ width: '22px', height: '22px', borderRadius: '4px' }} 
+            />
+          </a>
+
+          {/* 2. Настройки */}
+          <div onClick={() => navigate('/settings')} style={{ color: '#aaa', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: '0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = '#aaa'}>
+            <Settings size={22} />
+          </div>
+
+          {/* 3. Аватар (теперь по центру) */}
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#fff', fontSize: '0.9rem' }}>
             {avatarLetter}
           </div>
-          <div onClick={() => navigate('/settings')} style={{ color: '#aaa', cursor: 'pointer', padding: '5px' }}>
-            <Settings size={20} />
+
+          {/* 4. Выход */}
+          <div onClick={handleLogout} style={{ color: '#ff4d4d', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: '0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ff8888'} onMouseLeave={(e) => e.currentTarget.style.color = '#ff4d4d'}>
+            <LogOut size={22} />
           </div>
-          <div onClick={handleLogout} style={{ color: '#ff4d4d', cursor: 'pointer', padding: '5px' }}>
-            <LogOut size={20} />
-          </div>
+
         </div>
       </div>
     );
   }
 
   // ==========================================
-  // 💻 ДЕСКТОПНАЯ ВЕРСИЯ (Боковая панель)
+  // 💻 ДЕСКТОПНАЯ ВЕРСИЯ
   // ==========================================
   return (
     <div style={{ width: '250px', backgroundColor: '#111', borderRight: '1px solid #222', padding: '24px 20px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', height: '100vh', flexShrink: 0 }}>
@@ -121,7 +133,27 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #222', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      {/* 🟢 Улучшенный нижний блок */}
+      <div style={{ paddingTop: '20px', borderTop: '1px solid #222', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        
+        {/* Кнопка на сайт теперь выглядит как стильный элемент интерфейса */}
+        <a 
+          href="https://3dcross.ru/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid #333', color: '#aaa', padding: '10px', borderRadius: '8px', textDecoration: 'none', transition: '0.2s', fontSize: '0.85rem' }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00ff88'; e.currentTarget.style.color = '#00ff88'; e.currentTarget.style.background = 'rgba(0, 255, 136, 0.05)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#aaa'; e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'; }}
+        >
+          <img 
+            src="https://www.google.com/s2/favicons?domain=3dcross.ru&sz=64" 
+            alt="3dcross" 
+            style={{ width: '16px', height: '16px', borderRadius: '3px' }} 
+          />
+          Перейти на сайт
+        </a>
+
+        {/* Профиль */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#fff', fontSize: '1rem', flexShrink: 0 }}>
             {avatarLetter}
@@ -131,6 +163,8 @@ export default function Sidebar() {
             <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>{isVisualizer ? 'Визуализатор' : 'Дизайнер'}</div>
           </div>
         </div>
+
+        {/* Кнопки Настройки и Выход */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={() => navigate('/settings')} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#1a1a1a', border: '1px solid #333', color: '#aaa', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: '0.2s', fontSize: '0.8rem' }} onMouseEnter={(e) => { e.currentTarget.style.background = '#222'; e.currentTarget.style.color = '#fff'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#aaa'; }}>
             <Settings size={16} /> Настройки

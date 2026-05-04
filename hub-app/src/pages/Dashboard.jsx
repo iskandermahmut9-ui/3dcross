@@ -173,7 +173,7 @@ export default function Dashboard() {
                 {designer.projects.length === 0 ? (
                   <p style={{ color: '#555', margin: 0 }}>У этого дизайнера пока нет проектов.</p>
                 ) : (
-                  // 🟢 5. Карточки. Слегка уменьшили минимальную ширину карточки, чтобы она влезала в узкие экраны iPhone
+                 // 🟢 5. Карточки. Слегка уменьшили минимальную ширину карточки, чтобы она влезала в узкие экраны iPhone
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {designer.projects.map((project) => (
                       <TiltCard 
@@ -188,18 +188,26 @@ export default function Dashboard() {
                           padding: '24px',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '20px'
+                          gap: '20px',
+                          // 🟢 Карточка тускнеет, если проект в архиве
+                          opacity: project.is_archived ? 0.6 : 1,
+                          transition: 'opacity 0.3s ease'
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {/* 🟢 Логика точки: Архив перекрывает всё красным. Иначе - зеленый для работы, красный для правок */}
                             <div style={{ 
                               width: '8px', height: '8px', borderRadius: '50%', 
-                              background: project.status === 'Ждет правок' ? '#ff4d4d' : project.status === 'В работе' ? '#fff' : '#00ff88',
-                              boxShadow: `0 0 10px ${project.status === 'Ждет правок' ? '#ff4d4d' : project.status === 'В работе' ? 'rgba(255,255,255,0.5)' : '#00ff88'}`
+                              background: project.is_archived ? '#ff4d4d' : (project.status === 'Ждет правок' ? '#ff4d4d' : '#00ff88'),
+                              boxShadow: project.is_archived ? '0 0 10px rgba(255, 77, 77, 0.6)' : (project.status === 'Ждет правок' ? '0 0 10px rgba(255, 77, 77, 0.6)' : '0 0 10px rgba(0, 255, 136, 0.6)')
                             }} />
-                            <span style={{ color: '#aaa', fontSize: '0.8rem', fontWeight: '500' }}>
-                              {project.status || 'В работе'}
+                            <span style={{ 
+                              color: project.is_archived ? '#ff4d4d' : '#aaa', 
+                              fontSize: '0.8rem', 
+                              fontWeight: '500' 
+                            }}>
+                              {project.is_archived ? 'В архиве' : (project.status || 'В работе')}
                             </span>
                           </div>
                           <ArrowRight size={18} color="#555" />

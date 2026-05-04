@@ -469,20 +469,42 @@ export default function Workspace() {
       alert("Не удалось сохранить рисунок! Ошибка базы данных: " + error.message);
     }
   };
-  // 🟢 Функция "Шаг назад" (Удаляет последнюю нарисованную линию)
+  // 🟢 Умный "Шаг назад": удаляет только линию текущего пользователя
   const handleUndoLine = async () => {
     if (!activeRender || !activeRender.lines || activeRender.lines.length === 0) return;
 
-    const newLines = activeRender.lines.slice(0, -1);
+    // 1. Определяем наш цвет (дизайнер = зеленый, виз = красный)
+    const myColor = userRole === 'admin' ? '#00ff88' : '#ff0000';
 
-    // 1. Мгновенно обновляем экран
+    // 2. Ищем с конца массива ПОСЛЕДНЮЮ линию с нашим цветом
+    let lastMyLineIndex = -1;
+    for (let i = activeRender.lines.length - 1; i >= 0; i--) {
+      // Проверяем цвет линии (на всякий случай смотрим оба возможных названия свойства)
+      const lineColor = activeRender.lines[i].color || activeRender.lines[i].brushColor; 
+      if (lineColor === myColor) {
+        lastMyLineIndex = i;
+        break;
+      }
+    }
+
+    // Если наших линий нет на холсте — ничего не делаем
+    if (lastMyLineIndex === -1) {
+      alert("На холсте нет ваших линий для отмены.");
+      return;
+    }
+
+    // 3. Вырезаем именно НАШУ линию из массива
+    const newLines = [...activeRender.lines];
+    newLines.splice(lastMyLineIndex, 1);
+
+    // 4. Мгновенно обновляем экран
     setRenders(prev => prev.map(r => r.id === activeRender.id ? { ...r, lines: newLines } : r));
     setActiveRender(prev => ({ ...prev, lines: newLines }));
     
-    // 🟢 ПОСЫЛАЕМ СИГНАЛ ХОЛСТУ ПРИНУДИТЕЛЬНО ОБНОВИТЬСЯ:
+    // Посылаем сигнал холсту
     setUndoSignal(prev => prev + 1);
 
-    // 2. Отправляем в базу
+    // 5. Отправляем в базу
     const { error } = await supabase.from('iterations').update({ lines: newLines }).eq('id', activeRender.id);
     if (error) console.error("Ошибка при отмене линии:", error);
   };
@@ -679,7 +701,7 @@ export default function Workspace() {
 
   if (isInitialLoading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#0a0a0a', color: 'white', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', backgroundColor: '#0a0a0a', color: 'white', alignItems: 'center', justifyContent: 'center' }}>
         <Loader2 size={48} color="#00ff88" style={{ animation: 'spin 1.5s linear infinite', marginBottom: '20px' }} />
         <h2 style={{ fontWeight: '400', color: '#aaa', margin: 0 }}>Входим в комнату...</h2>
       </div>
@@ -687,10 +709,10 @@ export default function Workspace() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#0a0a0a', color: 'white', fontFamily: 'Manrope, sans-serif', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', backgroundColor: '#0a0a0a', color: 'white', fontFamily: 'Manrope, sans-serif', overflow: 'hidden' }}>
       
       {/* 🟢 ВЫЕЗЖАЮЩАЯ ПАНЕЛЬ ЧАТА (100% ширины на мобилке) */}
-      <div style={{ position: 'fixed', top: 0, right: isChatOpen ? 0 : (isMobile ? '-100%' : '-400px'), width: isMobile ? '100%' : '400px', height: '100vh', background: '#161616', borderLeft: '1px solid #333', zIndex: 9999, transition: 'right 0.3s ease', display: 'flex', flexDirection: 'column', boxShadow: isChatOpen ? '-5px 0 30px rgba(0,0,0,0.6)' : 'none' }}>
+      <div style={{ position: 'fixed', top: 0, right: isChatOpen ? 0 : (isMobile ? '-100%' : '-400px'), width: isMobile ? '100%' : '400px', height: '100dvh', background: '#161616', borderLeft: '1px solid #333', zIndex: 9999, transition: 'right 0.3s ease', display: 'flex', flexDirection: 'column', boxShadow: isChatOpen ? '-5px 0 30px rgba(0,0,0,0.6)' : 'none' }}>
         <div style={{ padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111' }}>
           <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem' }}><MessageCircle size={22} color="#00ff88" /> Обсуждение</h3>
           <button onClick={() => setIsChatOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={18} /></button>
@@ -726,11 +748,32 @@ export default function Workspace() {
         </div>
       )}
 
-      {/* 🟢 НОВАЯ КОМПАКТНАЯ ШАПКА (1 строка) */}
+     {/* 🟢 НОВАЯ КОМПАКТНАЯ ШАПКА (1 строка) */}
       <div style={{ padding: '10px 15px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0a0a0a', zIndex: 20 }}>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', flex: 1, paddingRight: '15px' }}>
-          <button onClick={() => navigate(projectData ? `/project/${projectData.id}` : '/')} style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', padding: 0, flexShrink: 0 }}><ArrowLeft size={isMobile ? 24 : 20} /></button>
+          
+          {/* 🟢 ВОТ ОНА: Замененная кнопка */}
+          <button 
+            onClick={() => navigate(projectData ? `/project/${projectData.id}` : '/')} 
+            style={{ 
+              background: 'linear-gradient(145deg, #1a1a1a, #111)', 
+              border: '1px solid #00ff88', 
+              color: '#00ff88', 
+              width: isMobile ? '36px' : '40px', 
+              height: isMobile ? '36px' : '40px', 
+              borderRadius: '10px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              cursor: 'pointer', 
+              padding: 0, 
+              flexShrink: 0,
+              boxShadow: '4px 4px 10px rgba(0,0,0,0.5), -2px -2px 10px rgba(255,255,255,0.02), 0 0 12px rgba(0, 255, 136, 0.4), inset 0 0 8px rgba(0, 255, 136, 0.15)' 
+            }}
+          >
+            <ArrowLeft size={20} strokeWidth={2.5} />
+          </button>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#888', fontSize: isMobile ? '1rem' : '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden' }}>
             {/* Имя дизайнера показываем только на ПК */}
@@ -802,16 +845,18 @@ export default function Workspace() {
         )}
 
         {activeTab === 'tz' ? (
-          <div style={{ flex: 1, padding: isMobile ? '15px' : '30px', overflowY: 'auto' }}>
-            <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: isMobile ? '15px' : '30px' }}>
-              <div style={{ flex: '1 1 600px', display: 'flex', flexDirection: 'column', gap: isMobile ? '15px' : '25px' }}>
-                <div style={{ background: '#111', padding: isMobile ? '15px' : '25px', borderRadius: '12px', border: '1px solid #333' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                     <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><FileText size={20} color="#00ff88" /> Описание</h3>
-                     <button onClick={() => handleSaveTz(false)} disabled={saveStatus === 'saving'} style={{ background: saveStatus === 'saved' ? '#00ff88' : '#222', color: saveStatus === 'saved' ? '#000' : '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                       {saveStatus === 'saving' ? '...' : saveStatus === 'saved' ? 'Сохранено' : 'Сохранить'}
-                     </button>
-                  </div>
+  <div style={{ flex: 1, padding: isMobile ? '15px' : '30px', paddingBottom: '120px', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box', width: '100%' }}>
+    <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: isMobile ? '15px' : '30px', boxSizing: 'border-box', width: '100%' }}>
+      {/* 🟢 Заменили 600px на 100% для мобилок и добавили minWidth: 0, чтобы flex-блоки не распирало */}
+      <div style={{ flex: isMobile ? '1 1 100%' : '1 1 600px', display: 'flex', flexDirection: 'column', gap: isMobile ? '15px' : '25px', boxSizing: 'border-box', minWidth: 0, width: '100%' }}>
+        <div style={{ background: '#111', padding: isMobile ? '15px' : '25px', borderRadius: '12px', border: '1px solid #333', boxSizing: 'border-box', width: '100%' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+             <h3 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><FileText size={20} color="#00ff88" /> Описание</h3>
+             <button onClick={() => handleSaveTz(false)} disabled={saveStatus === 'saving'} style={{ background: saveStatus === 'saved' ? '#00ff88' : '#222', color: saveStatus === 'saved' ? '#000' : '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+               {saveStatus === 'saving' ? '...' : saveStatus === 'saved' ? 'Сохранено' : 'Сохранить'}
+             </button>
+          </div>
                   <textarea placeholder="Подробно опишите задачу..." value={tzDescription} onChange={(e) => setTzDescription(e.target.value)} style={{ width: '100%', padding: '15px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white', boxSizing: 'border-box', minHeight: '300px', resize: 'vertical', fontFamily: 'inherit', fontSize: '0.95rem' }} />
                 </div>
                 
@@ -941,18 +986,35 @@ export default function Workspace() {
                     />
                     
                     {renders.filter(r => r.version === activeVersion).length > 0 && (
-                      <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', background: 'rgba(26, 26, 26, 0.9)', padding: '8px', borderRadius: '12px', border: '1px solid #444', zIndex: 10 }}>
-                        {renders.filter(r => r.version === activeVersion).map((r, idx) => {
-                          const safeThumbUrl = r.image_url ? r.image_url.replace('https://bbaoigykxjsrgkthsuiu.supabase.co', import.meta.env.VITE_SUPABASE_URL) : '';
-                          return (
-                            <div key={r.id} onClick={() => handleSelectRender(r)} style={{ width: isMobile ? '50px' : '65px', height: isMobile ? '50px' : '65px', borderRadius: '8px', overflow: 'hidden', border: activeRender?.id === r.id ? '2px solid #00ff88' : '2px solid #333', cursor: 'pointer', opacity: activeRender?.id === r.id ? 1 : 0.6 }}>
-                              <img src={safeThumbUrl} alt="render" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '9px', textAlign: 'center' }}>Р. {idx + 1}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+  <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', background: 'rgba(26, 26, 26, 0.9)', padding: '8px', borderRadius: '12px', border: '1px solid #444', zIndex: 10 }}>
+    {renders.filter(r => r.version === activeVersion).map((r, idx) => {
+      const safeThumbUrl = r.image_url ? r.image_url.replace('https://bbaoigykxjsrgkthsuiu.supabase.co', import.meta.env.VITE_SUPABASE_URL) : '';
+      return (
+        <div 
+          key={r.id} 
+          onClick={() => handleSelectRender(r)} 
+          style={{ 
+            position: 'relative', /* 🟢 ВОТ ОН - ГЛАВНЫЙ СЕКРЕТ! Теперь цифра не убежит */
+            width: isMobile ? '50px' : '65px', 
+            height: isMobile ? '50px' : '65px', 
+            borderRadius: '8px', 
+            overflow: 'hidden', 
+            border: activeRender?.id === r.id ? '2px solid #00ff88' : '2px solid #333', 
+            cursor: 'pointer', 
+            opacity: activeRender?.id === r.id ? 1 : 0.6 
+          }}
+        >
+          <img src={safeThumbUrl} alt="render" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          
+          {/* 🟢 Улучшенная плашка с номером (теперь она точно появится внизу картинки) */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.8)', color: 'white', fontSize: '10px', fontWeight: 'bold', textAlign: 'center', padding: '2px 0' }}>
+            Р. {idx + 1}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
                   </>
                 ) : (
                   <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: !isDesigner && isDragging ? '2px dashed #00ff88' : '2px dashed #222', backgroundColor: !isDesigner && isDragging ? 'rgba(0, 255, 136, 0.05)' : 'transparent', margin: '20px', borderRadius: '15px' }}>
