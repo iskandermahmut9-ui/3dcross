@@ -6,6 +6,7 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true); // true = Вход, false = Регистрация
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState(''); // 🟢 ДОБАВИЛИ СОСТОЯНИЕ ДЛЯ ИМЕНИ
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -27,24 +28,22 @@ export default function Auth() {
         const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
 
-        // === НОВАЯ МАГИЯ: АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ПРОФИЛЯ ===
-        // Если регистрация прошла успешно и мы получили данные пользователя:
+        // === АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ПРОФИЛЯ ===
         if (data?.user) {
           const { error: profileError } = await supabase
             .from('profiles')
             .insert([
               {
-                id: data.user.id,     // Берем сгенерированный ID
-                email: email,         // Сохраняем почту
-                role: 'designer'      // По умолчанию делаем всех дизайнерами
+                id: data.user.id,
+                email: email,
+                name: name,          // 🟢 ПЕРЕДАЕМ ИМЯ В БАЗУ
+                role: 'designer'
               }
             ]);
 
-          // Если профиль не создался - выдаем ошибку
           if (profileError) throw profileError;
         }
 
-        // После успешной регистрации и создания профиля кидаем на главную
         navigate('/');
       }
     } catch (err) {
@@ -62,12 +61,14 @@ export default function Auth() {
         {/* Переключатель Вход / Регистрация */}
         <div style={{ display: 'flex', marginBottom: '30px', background: '#1a1a1a', borderRadius: '8px', padding: '4px' }}>
           <button 
+            type="button"
             onClick={() => setIsLogin(true)}
             style={{ flex: 1, padding: '10px', borderRadius: '6px', border: 'none', background: isLogin ? '#333' : 'transparent', color: isLogin ? 'white' : '#777', cursor: 'pointer', fontWeight: isLogin ? 'bold' : 'normal', transition: '0.2s' }}
           >
             Вход
           </button>
           <button 
+            type="button"
             onClick={() => setIsLogin(false)}
             style={{ flex: 1, padding: '10px', borderRadius: '6px', border: 'none', background: !isLogin ? '#333' : 'transparent', color: !isLogin ? 'white' : '#777', cursor: 'pointer', fontWeight: !isLogin ? 'bold' : 'normal', transition: '0.2s' }}
           >
@@ -86,6 +87,22 @@ export default function Auth() {
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          
+          {/* 🟢 ПОЛЕ ИМЯ ПОКАЗЫВАЕТСЯ ТОЛЬКО ПРИ РЕГИСТРАЦИИ */}
+          {!isLogin && (
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.85rem', color: '#888' }}>Имя</label>
+              <input 
+                type="text" 
+                value={name} 
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Например, Иван"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #333', background: '#1a1a1a', color: 'white', outline: 'none', boxSizing: 'border-box' }}
+                required={!isLogin} // Обязательно только если мы регистрируемся
+              />
+            </div>
+          )}
+
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.85rem', color: '#888' }}>Email</label>
             <input 

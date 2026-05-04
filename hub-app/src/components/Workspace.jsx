@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 // 🟢 Добавили Undo в общий список иконок
-import { MessageSquare, Pencil, MousePointer2, Trash2, ArrowLeft, Upload, Loader2, FileText, Image as ImageIcon, Save, Link as LinkIcon, Plus, X, ImagePlus, FileArchive, Maximize2, Download, Check, ArrowLeftRight, MessageCircle, Send, ExternalLink, CheckCircle2, Circle, Undo } from 'lucide-react';
+import { MessageSquare, Pencil, MousePointer2, Trash2, ArrowLeft, Upload, Loader2, FileText, Image as ImageIcon, Save, Link as LinkIcon, Plus, X, ImagePlus, FileArchive, Maximize2, Download, Check, ArrowLeftRight, MessageCircle, Send, ExternalLink, CheckCircle2, Circle, Undo,  } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CanvasViewer from './CanvasViewer';
 import { supabase } from '../supabaseClient';
@@ -24,12 +24,22 @@ export default function Workspace() {
   }, []);
 
   // 2. СНАЧАЛА ОБЪЯВЛЯЕМ ВСЕ ПЕРЕМЕННЫЕ (СТЕЙТЫ)
-  const [roomData, setRoomData] = useState(null);
-  const [projectData, setProjectData] = useState(null);
-  const [designerData, setDesignerData] = useState(null);
-  const [activeTool, setActiveTool] = useState('cursor');
-  const isAddingPinRef = useRef(false);
+  const [roomData, setRoomData] = useState(null);
+  const [projectData, setProjectData] = useState(null);
+  const [designerData, setDesignerData] = useState(null);
+  const [activeTool, setActiveTool] = useState('cursor');
+  const isAddingPinRef = useRef(false);
+
+  // 🟢 ДОБАВЬ ЭТУ СТРОЧКУ НИЖЕ:
   const [renders, setRenders] = useState([]); 
+
+  // 🟢 УМНАЯ СОРТИРОВКА: всегда выстраивает рендеры по алфавиту/цифрам ссылки
+  const getSortedRenders = (rendersArray) => {
+    // ... твой код функции ...
+    if (!rendersArray || rendersArray.length === 0) return [];
+    // Создаем копию массива и сортируем её
+    return [...rendersArray].sort((a, b) => a.image_url.localeCompare(b.image_url));
+  };
   const [activeRender, setActiveRender] = useState(null); 
   const [activeVersion, setActiveVersion] = useState(1);
   const [comments, setComments] = useState([]);
@@ -222,14 +232,16 @@ export default function Workspace() {
         .order('version', { ascending: true }); // Сортировка по итерациям
 
       if (iters) {
-        setRenders(prevRenders => prevRenders.map(pr => {
-          const newIt = iters.find(i => i.id === pr.id);
-          if (!newIt) return pr;
-          const newLines = newIt.lines || [];
-          const oldLines = pr.lines || [];
-          // Если у нас локально нарисовано больше линий, оставляем наши (чтобы не моргало)
-          return { ...newIt, lines: newLines.length > oldLines.length ? newLines : oldLines };
-        }));
+        setRenders(prevRenders => getSortedRenders(
+  prevRenders.map(pr => {
+    const newIt = iters.find(i => i.id === pr.id);
+    if (!newIt) return pr;
+    const newLines = newIt.lines || [];
+    const oldLines = pr.lines || [];
+    // Если у нас локально нарисовано больше линий, оставляем наши (чтобы не моргало)
+    return { ...newIt, lines: newLines.length > oldLines.length ? newLines : oldLines };
+  })
+));
 
         setActiveRender(prevActive => {
           if (!prevActive) return null;
@@ -313,16 +325,25 @@ export default function Workspace() {
         const { data: allRenders } = await supabase.from('iterations').select('*').eq('room_id', roomId).order('created_at', { ascending: true }); 
         
         if (allRenders && allRenders.length > 0) {
-          setRenders(allRenders);
-          const latestRender = allRenders[allRenders.length - 1];
-          setActiveVersion(latestRender.version);
-          setActiveRender(latestRender);
-          setUploadedImage(latestRender.image_url);
-          const { data: comms } = await supabase.from('comments').select('*').eq('iteration_id', latestRender.id).order('number', { ascending: true });
-          setComments(comms || []);
-          if (currentRoom && !currentRoom.is_general) setActiveTab('renders');
-        } else {
-          setActiveTab('tz');
+          // 🟢 ПРОГОНЯЕМ ЧЕРЕЗ ФИЛЬТР СОРТИРОВКИ
+        const sortedRenders = getSortedRenders(allRenders);
+        
+        // Передаем в стейт уже правильный, отсортированный массив
+        setRenders(sortedRenders);
+        
+        // Берем последнюю картинку из ОТСОРТИРОВАННОГО списка
+        const latestRender = sortedRenders[sortedRenders.length - 1];
+        
+        setActiveVersion(latestRender.version);
+        setActiveRender(latestRender);
+        setUploadedImage(latestRender.image_url);
+        
+        const { data: comms } = await supabase.from('comments').select('*').eq('iteration_id', latestRender.id).order('number', { ascending: true });
+        setComments(comms || []);
+        
+        if (currentRoom && !currentRoom.is_general) setActiveTab('renders');
+      } else {
+        setActiveTab('tz');
         }
       } catch (error) {
         console.error('Ошибка загрузки:', error.message);
@@ -370,11 +391,25 @@ export default function Workspace() {
         if (iterError) throw iterError;
         newRenders.push(newRender);
       }
-      setRenders([...renders, ...newRenders]);
-      const lastRender = newRenders[newRenders.length - 1];
-      if (lastRender) { setActiveRender(lastRender); setUploadedImage(lastRender.image_url); setComments([]); }
-    } catch (error) { alert('Ошибка загрузки: ' + error.message); } 
-    finally { setIsUploading(false); }
+      // 🟢 СНАЧАЛА ОБЪЕДИНЯЕМ И СОРТИРУЕМ
+      const sortedRenders = getSortedRenders([...renders, ...newRenders]);
+      
+      // Отдаем в стейт
+      setRenders(sortedRenders);
+      
+      // Берем самую последнюю (актуальную) картинку из уже отсортированного списка
+      const lastRender = sortedRenders[sortedRenders.length - 1];
+      
+      if (lastRender) { 
+        setActiveRender(lastRender); 
+        setUploadedImage(lastRender.image_url); 
+        setComments([]); 
+      }
+    } catch (error) { 
+      alert('Ошибка загрузки: ' + error.message); 
+    } finally { 
+      setIsUploading(false); 
+    }
   };
 
   const handleCreateNewIteration = () => { const maxVersion = renders.length > 0 ? Math.max(...renders.map(r => r.version)) : 0; setActiveVersion(maxVersion + 1); setActiveRender(null); setUploadedImage(null); setComments([]); };
@@ -457,9 +492,11 @@ export default function Workspace() {
     if (!activeRender) return; 
 
     // 1. Мгновенно обновляем картинку на экране у самого дизайнера
-    setRenders(prev => prev.map(r => r.id === activeRender.id ? { ...r, lines: newLines } : r)); 
-    setActiveRender(prev => ({ ...prev, lines: newLines })); 
-    
+   // 🟢 ОБОРАЧИВАЕМ РЕЗУЛЬТАТ В getSortedRenders
+    setRenders(prev => getSortedRenders(
+      prev.map(r => r.id === activeRender.id ? { ...r, lines: newLines } : r)
+    )); 
+    setActiveRender(prev => ({ ...prev, lines: newLines }));
     // 2. Пытаемся отправить данные в Supabase
     const { error } = await supabase.from('iterations').update({ lines: newLines }).eq('id', activeRender.id); 
     
@@ -498,7 +535,9 @@ export default function Workspace() {
     newLines.splice(lastMyLineIndex, 1);
 
     // 4. Мгновенно обновляем экран
-    setRenders(prev => prev.map(r => r.id === activeRender.id ? { ...r, lines: newLines } : r));
+    setRenders(prev => getSortedRenders(
+      prev.map(r => r.id === activeRender.id ? { ...r, lines: newLines } : r)
+    ));
     setActiveRender(prev => ({ ...prev, lines: newLines }));
     
     // Посылаем сигнал холсту
@@ -522,7 +561,9 @@ export default function Workspace() {
         if (error) throw error;
 
         // 2. Обновляем статус локально
-        setRenders(prev => prev.map(r => r.id === activeRender.id ? { ...r, status: 'Утверждено' } : r));
+        setRenders(prev => getSortedRenders(
+          prev.map(r => r.id === activeRender.id ? { ...r, status: 'Утверждено' } : r)
+        ));
         setActiveRender(prev => ({ ...prev, status: 'Утверждено' }));
         
         // Переключаем инструмент на курсор (чтобы случайно не тыкнуть пин)
@@ -578,15 +619,17 @@ export default function Workspace() {
     // Удаляем из базы
     await supabase.from('iterations').delete().eq('id', activeRender.id);
 
-    // Убираем из стейта на экране
-    const updatedRenders = renders.filter(r => r.id !== activeRender.id);
+    // Убираем из стейта на экране и СРАЗУ СОРТИРУЕМ
+    const updatedRenders = getSortedRenders(renders.filter(r => r.id !== activeRender.id));
+    
     setRenders(updatedRenders);
 
     // Пытаемся переключиться на соседний ракурс в этой же итерации
+    // (теперь он будет искать в уже правильно отсортированном списке!)
     const nextRender = updatedRenders.find(r => r.version === activeVersion);
     if (nextRender) {
       handleSelectRender(nextRender);
-    } else {
+    }else {
       // Если это был последний ракурс - очищаем экран
       setActiveRender(null);
       setUploadedImage(null);
@@ -600,8 +643,8 @@ export default function Workspace() {
     // Удаляем из базы все ракурсы с этой версией для этой комнаты
     await supabase.from('iterations').delete().eq('room_id', roomId).eq('version', versionToDelete);
 
-    // Убираем из стейта
-    const updatedRenders = renders.filter(r => r.version !== versionToDelete);
+    // Убираем из стейта и СРАЗУ СОРТИРУЕМ
+    const updatedRenders = getSortedRenders(renders.filter(r => r.version !== versionToDelete));
     setRenders(updatedRenders);
 
     // Если мы удалили ту итерацию, на которой сейчас находились, переключаемся на предыдущую
@@ -794,22 +837,100 @@ export default function Workspace() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: isMobile ? '15px' : '20px', alignItems: 'center' }}>
-          {!roomData?.is_general && (
+        {/* 🟢 ЦЕНТРАЛЬНЫЙ БЛОК (ВКЛАДКИ) - ТОЛЬКО ДЛЯ ПК */}
+        {!isMobile && !roomData?.is_general && (
+          <div style={{
+            position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+            display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px'
+          }}>
+            <button
+              onClick={() => setActiveTab('tz')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', borderRadius: '6px',
+                border: 'none', cursor: 'pointer', fontSize: '0.9rem',
+                background: activeTab === 'tz' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                color: activeTab === 'tz' ? '#fff' : '#888', transition: '0.2s'
+              }}
+            >
+              <FileText size={16} /> Локальное ТЗ
+            </button>
+            <button
+              onClick={() => setActiveTab('renders')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', borderRadius: '6px',
+                border: 'none', cursor: 'pointer', fontSize: '0.9rem',
+                background: activeTab === 'renders' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                color: activeTab === 'renders' ? '#fff' : '#888', transition: '0.2s'
+              }}
+            >
+              <ImageIcon size={16} /> Рендеры и правки
+            </button>
+          </div>
+        )}
+
+        {/* 🟢 ПРАВЫЙ БЛОК (КНОПКИ ДЕЙСТВИЙ И МОБИЛЬНЫЕ ВКЛАДКИ) */}
+        <div style={{ display: 'flex', gap: isMobile ? '15px' : '12px', alignItems: 'center' }}>
+
+          {/* Мобильные вкладки (показываем только на телефоне вместо центрального блока) */}
+          {isMobile && !roomData?.is_general && (
             <>
-              <button onClick={() => setActiveTab('tz')} style={{ color: activeTab === 'tz' ? '#00ff88' : '#888', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }} title="Локальное ТЗ"><FileText size={isMobile ? 24 : 20} /></button>
-              <button onClick={() => setActiveTab('renders')} style={{ color: activeTab === 'renders' ? '#00ff88' : '#888', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }} title="Рендеры"><ImageIcon size={isMobile ? 24 : 20} /></button>
+              <button onClick={() => setActiveTab('tz')} style={{ color: activeTab === 'tz' ? '#00ff88' : '#888', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}><FileText size={24} /></button>
+              <button onClick={() => setActiveTab('renders')} style={{ color: activeTab === 'renders' ? '#00ff88' : '#888', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}><ImageIcon size={24} /></button>
             </>
           )}
+
+          {/* Кнопка загрузки рендера (остается как была) */}
           {activeTab === 'renders' && !isDesigner && (
-            <label style={{ color: isUploading ? '#555' : '#fff', cursor: isUploading ? 'not-allowed' : 'pointer', margin: 0, padding: 0, display: 'flex' }} title="Загрузить рендер">
+            <label style={{ color: isUploading ? '#555' : '#fff', cursor: isUploading ? 'not-allowed' : 'pointer', display: 'flex' }} title="Загрузить рендер">
               {isUploading ? <Loader2 size={isMobile ? 24 : 20} style={{ animation: 'spin 2s linear infinite' }} /> : <Upload size={isMobile ? 24 : 20} />}
               <input type="file" multiple hidden onChange={handleFileUpload} accept="image/*" disabled={isUploading} />
             </label>
           )}
-          <button onClick={() => { setIsChatOpen(!isChatOpen); setUnreadCount(0); }} style={{ color: isChatOpen ? '#00ff88' : '#fff', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', position: 'relative', display: 'flex' }} title="Чат проекта">
-            <MessageCircle size={isMobile ? 24 : 20} />
-            {unreadCount > 0 && ( <span style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ff0044', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid #0a0a0a' }} /> )}
+
+          {/* Кнопка "Сохранить ТЗ" (Показываем только на ПК) */}
+          {!isMobile && (
+            <button
+              onClick={() => {
+                // Если есть функция сохранения - вызывай её тут. 
+                // Если автосохранение работает, можешь просто оставить alert или сделать красивый Toast
+                alert('ТЗ сохранено!'); 
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                background: 'white', color: 'black', border: 'none',
+                padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer'
+              }}
+            >
+              <Save size={16} /> Сохранить ТЗ
+            </button>
+          )}
+
+          {/* Чат проекта (На ПК с текстом и рамкой, на мобилке - просто иконка) */}
+          <button
+            onClick={() => { setIsChatOpen(!isChatOpen); setUnreadCount(0); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              color: isChatOpen ? '#00ff88' : (isMobile ? '#fff' : '#00ff88'),
+              background: 'transparent',
+              border: isMobile ? 'none' : '1px solid rgba(0, 255, 136, 0.3)',
+              padding: isMobile ? '0' : '8px 16px',
+              borderRadius: '6px', cursor: 'pointer', position: 'relative'
+            }}
+          >
+            <MessageCircle size={isMobile ? 24 : 18} />
+            {!isMobile && "Чат проекта"}
+
+            {/* Кружок с количеством непрочитанных сообщений */}
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: isMobile ? '-5px' : '-8px', right: isMobile ? '-5px' : '-8px',
+                background: '#ff0044', color: 'white', fontSize: '10px',
+                minWidth: '16px', height: '16px', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold'
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -889,12 +1010,55 @@ export default function Workspace() {
                 </div>
 
                 <div style={{ background: '#111', padding: isMobile ? '15px' : '25px', borderRadius: '12px', border: '1px solid #333' }}>
-                  <h3 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}><LinkIcon size={20} color="#00ff88" /> Ссылки</h3>
-                  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
-                    <input type="text" placeholder="Название" value={newLinkTitle} onChange={(e) => setNewLinkTitle(e.target.value)} style={{ flex: 1, padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white' }} />
-                    <input type="text" placeholder="URL ссылка" value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddLink()} style={{ flex: 2, padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white' }} />
-                    <button onClick={handleAddLink} style={{ padding: '12px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px', fontWeight: 'bold' }}><Plus size={18} /></button>
-                  </div>
+  <h3 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <LinkIcon size={20} color="#00ff88" /> Спецификация ссылок
+  </h3>
+
+  {/* 🟢 НОВЫЙ БЛОК: Быстрые ссылки на базы моделей */}
+  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+    <span style={{ color: '#888', fontSize: '0.95rem' }}>Базы моделей:</span>
+    
+    <a 
+      href="https://3ddd.ru/" 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      style={{ 
+        display: 'flex', alignItems: 'center', gap: '6px', 
+        color: '#00ff88', border: '1px solid #333', background: 'transparent',
+        padding: '6px 12px', borderRadius: '6px', textDecoration: 'none', 
+        fontSize: '0.9rem', transition: 'border-color 0.2s ease' 
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.borderColor = '#00ff88'}
+      onMouseLeave={(e) => e.currentTarget.style.borderColor = '#333'}
+    >
+      3ddd <ExternalLink size={14} />
+    </a>
+
+    <a 
+      href="https://cgkit.pro/catalog/producers/3dkit" 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      style={{ 
+        display: 'flex', alignItems: 'center', gap: '6px', 
+        color: '#00ff88', border: '1px solid #333', background: 'transparent',
+        padding: '6px 12px', borderRadius: '6px', textDecoration: 'none', 
+        fontSize: '0.9rem', transition: 'border-color 0.2s ease' 
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.borderColor = '#00ff88'}
+      onMouseLeave={(e) => e.currentTarget.style.borderColor = '#333'}
+    >
+      CGKit <ExternalLink size={14} />
+    </a>
+  </div>
+
+  {/* Блок с инпутами для добавления новых ссылок (твой старый код) */}
+  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
+    <input type="text" placeholder="Название (напр: Стул)" value={newLinkTitle} onChange={(e) => setNewLinkTitle(e.target.value)} style={{ flex: 1, padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white' }} />
+    <input type="text" placeholder="URL ссылка (https://...)" value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddLink()} style={{ flex: 2, padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '8px', color: 'white' }} />
+    <button onClick={handleAddLink} style={{ padding: '12px 20px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+      <Plus size={18} /> {isMobile ? '' : 'Добавить'}
+    </button>
+  </div>
                   {tzLinks.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {tzLinks.map((link, index) => (

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Folder, Users, Plus, ArrowRight, Loader2, User } from 'lucide-react';
+import { Folder, Users, Plus, ArrowRight, Loader2, User, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
@@ -49,7 +49,7 @@ export default function Dashboard() {
       
       let query = supabase
         .from('profiles')
-        .select(`id, name, projects ( id, title, status, created_at )`)
+        .select(`id, name, projects ( id, title, status, created_at, is_archived )`)
         .eq('role', 'designer')
         .order('name');
 
@@ -83,17 +83,24 @@ export default function Dashboard() {
       fetchData();
     }
   }, [user?.id, designerId, isVisualizer]);
-
+  
   const handleCreateProject = async () => {
     if (!newProjectTitle.trim()) return;
-    if (selectedDesignerId === 'new' && !newDesignerName.trim()) return;
-    if (!selectedDesignerId) return;
+
+    // 🟢 1. ОПРЕДЕЛЯЕМ ID: Если админ - берем из списка. Если дизайнер - берем его собственный
+    let targetDesignerId = isVisualizer ? selectedDesignerId : user?.id;
+
+    // 🟢 2. ПРОВЕРКИ ТОЛЬКО ДЛЯ АДМИНА
+    if (isVisualizer) {
+      if (selectedDesignerId === 'new' && !newDesignerName.trim()) return;
+      if (!selectedDesignerId) return;
+    }
 
     try {
       setIsCreating(true);
-      let targetDesignerId = selectedDesignerId;
 
-      if (selectedDesignerId === 'new') {
+      // 🟢 3. Создание нового дизайнера "на лету" (только для админа)
+      if (isVisualizer && selectedDesignerId === 'new') {
         const { data: newProfile, error: profileError } = await supabase
           .from('profiles')
           .insert([{ name: newDesignerName, role: 'designer' }])
@@ -104,6 +111,7 @@ export default function Dashboard() {
         targetDesignerId = newProfile.id;
       }
 
+      // 🟢 4. Запись проекта в базу
       const { error: projectError } = await supabase
         .from('projects')
         .insert([{ title: newProjectTitle, designer_id: targetDesignerId, status: 'В работе' }]);
@@ -123,6 +131,18 @@ export default function Dashboard() {
       setIsCreating(false);
     }
   };
+  const handleDeleteProject = async (e, projectId) => {
+  e.stopPropagation(); // Важно, чтобы не сработал переход в проект
+  if (window.confirm('Точно удалить этот проект? Все данные внутри исчезнут навсегда!')) {
+    try {
+      const { error } = await supabase.from('projects').delete().eq('id', projectId);
+      if (error) throw error;
+      fetchData(); // Обновляем список
+    } catch (error) {
+      alert('Ошибка при удалении: ' + error.message);
+    }
+  }
+};
 
   return (
     // 🟢 2. Главный контейнер теперь меняет направление: column на мобилках, row на десктопе
@@ -139,11 +159,11 @@ export default function Dashboard() {
             {designerId ? `Проекты: ${designersData[0]?.name || ''}` : 'Все проекты'}
           </h1>
           
-          {isVisualizer && (
-            <button onClick={() => setIsModalOpen(true)} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'white', color: 'black', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-              <Plus size={18} /> Создать проект
-            </button>
-          )}
+          {(isVisualizer || !designerId || user?.id === designerId) && (
+  <button onClick={() => setIsModalOpen(true)} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'white', color: 'black', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+    <Plus size={18} /> Создать проект
+  </button>
+)}
         </div>
 
         {loading ? (
@@ -177,23 +197,40 @@ export default function Dashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {designer.projects.map((project) => (
                       <TiltCard 
-                        key={project.id} 
-                        onClick={() => navigate(`/project/${project.id}`)} 
-                        style={{ 
-                          background: 'rgba(26, 26, 26, 0.4)', 
-                          backdropFilter: 'blur(12px)', 
-                          border: '1px solid rgba(255, 255, 255, 0.08)', 
-                          borderRadius: '16px', 
-                          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)', 
-                          padding: '24px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '20px',
-                          // 🟢 Карточка тускнеет, если проект в архиве
-                          opacity: project.is_archived ? 0.6 : 1,
-                          transition: 'opacity 0.3s ease'
-                        }}
-                      >
+  key={project.id} 
+  onClick={() => navigate(`/project/${project.id}`)} 
+  style={{ 
+    position: 'relative', // 🟢 ОБЯЗАТЕЛЬНО ДОБАВЬ ЭТО
+    background: 'rgba(26, 26, 26, 0.4)', 
+    backdropFilter: 'blur(12px)', 
+    // ... твои остальные стили ...
+    opacity: project.is_archived ? 0.6 : 1,
+    transition: 'opacity 0.3s ease'
+  }}
+>
+  {/* 🟢 ВОТ ОН, ПОСЛЕДНИЙ ПУНКТ (КНОПКА УДАЛЕНИЯ) */}
+  {isVisualizer && (
+    <button 
+      onClick={(e) => handleDeleteProject(e, project.id)}
+      style={{
+        position: 'absolute',
+        top: '15px',
+        right: '15px',
+        background: 'rgba(255, 68, 68, 0.1)',
+        color: '#ff4444',
+        border: 'none',
+        borderRadius: '6px',
+        padding: '6px',
+        cursor: 'pointer',
+        zIndex: 10,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+    >
+      <Trash2 size={16} />
+    </button>
+  )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {/* 🟢 Логика точки: Архив перекрывает всё красным. Иначе - зеленый для работы, красный для правок */}
@@ -238,28 +275,33 @@ export default function Dashboard() {
           <div style={{ background: '#1a1a1a', padding: isMobile ? '20px' : '30px', borderRadius: '12px', width: '100%', maxWidth: '400px', border: '1px solid #333', boxSizing: 'border-box' }}>
             <h2 style={{ margin: '0 0 20px 0', fontSize: '1.4rem' }}>Новый проект</h2>
             
-            <label style={{ display: 'block', marginBottom: '15px' }}>
-              <span style={{ display: 'block', marginBottom: '8px', color: '#aaa', fontSize: '0.9rem' }}>Заказчик (Дизайнер)</span>
-              <select value={selectedDesignerId} onChange={(e) => setSelectedDesignerId(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '6px', color: 'white', fontSize: '1rem', appearance: 'none', boxSizing: 'border-box' }}>
-                <option value="" disabled>-- Выберите дизайнера --</option>
-                {designerId ? (
-                  <option value={designersData[0]?.id}>{designersData[0]?.name}</option>
-                ) : (
-                  <>
-                    {designersData.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    <option value="new">+ Добавить нового дизайнера</option>
-                  </>
-                )}
-              </select>
-            </label>
+            {/* 🟢 ПОКАЗЫВАЕМ СПИСОК ТОЛЬКО АДМИНУ */}
+            {isVisualizer && (
+              <label style={{ display: 'block', marginBottom: '15px' }}>
+                <span style={{ display: 'block', marginBottom: '8px', color: '#aaa', fontSize: '0.9rem' }}>Заказчик (Дизайнер)</span>
+                <select value={selectedDesignerId} onChange={(e) => setSelectedDesignerId(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '6px', color: 'white', fontSize: '1rem', appearance: 'none', boxSizing: 'border-box' }}>
+                  <option value="" disabled>-- Выберите дизайнера --</option>
+                  {designerId ? (
+                    <option value={designersData[0]?.id}>{designersData[0]?.name}</option>
+                  ) : (
+                    <>
+                      {designersData.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      <option value="new">+ Добавить нового дизайнера</option>
+                    </>
+                  )}
+                </select>
+              </label>
+            )}
 
-            {selectedDesignerId === 'new' && !designerId && (
+            {/* 🟢 ИНПУТ ДЛЯ НОВОГО ДИЗАЙНЕРА ТОЖЕ ТОЛЬКО ДЛЯ АДМИНА */}
+            {isVisualizer && selectedDesignerId === 'new' && !designerId && (
               <label style={{ display: 'block', marginBottom: '15px' }}>
                 <span style={{ display: 'block', marginBottom: '8px', color: '#00ff88', fontSize: '0.9rem' }}>Имя нового дизайнера</span>
                 <input type="text" autoFocus placeholder="Например: Анна С." value={newDesignerName} onChange={(e) => setNewDesignerName(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0a0a0a', border: '1px solid #00ff88', borderRadius: '6px', color: 'white', boxSizing: 'border-box', fontSize: '1rem' }} />
               </label>
             )}
 
+            {/* 🟢 НАЗВАНИЕ ПРОЕКТА - ВИДЯТ ВСЕ */}
             <label style={{ display: 'block', marginBottom: '25px' }}>
               <span style={{ display: 'block', marginBottom: '8px', color: '#aaa', fontSize: '0.9rem' }}>Название проекта</span>
               <input type="text" placeholder="Например: ЖК Freedom" value={newProjectTitle} onChange={(e) => setNewProjectTitle(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0a0a0a', border: '1px solid #333', borderRadius: '6px', color: 'white', boxSizing: 'border-box', fontSize: '1rem' }} />
@@ -267,7 +309,13 @@ export default function Dashboard() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexDirection: isMobile ? 'column' : 'row' }}>
               <button onClick={() => { setIsModalOpen(false); setSelectedDesignerId(designerId || ''); setNewDesignerName(''); setNewProjectTitle(''); }} style={{ padding: '10px 16px', background: 'transparent', color: '#fff', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', width: isMobile ? '100%' : 'auto' }}>Отмена</button>
-              <button onClick={handleCreateProject} disabled={isCreating || !newProjectTitle.trim() || !selectedDesignerId || (selectedDesignerId === 'new' && !newDesignerName.trim())} style={{ padding: '10px 16px', background: 'white', color: 'black', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: isMobile ? '100%' : 'auto', opacity: (isCreating || !newProjectTitle.trim() || !selectedDesignerId || (selectedDesignerId === 'new' && !newDesignerName.trim())) ? 0.5 : 1 }}>
+              
+              {/* 🟢 ОБНОВЛЕННАЯ ЛОГИКА КНОПКИ СОЗДАТЬ */}
+              <button 
+                onClick={handleCreateProject} 
+                disabled={isCreating || !newProjectTitle.trim() || (isVisualizer && (!selectedDesignerId || (selectedDesignerId === 'new' && !newDesignerName.trim())))} 
+                style={{ padding: '10px 16px', background: 'white', color: 'black', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: isMobile ? '100%' : 'auto', opacity: (isCreating || !newProjectTitle.trim() || (isVisualizer && (!selectedDesignerId || (selectedDesignerId === 'new' && !newDesignerName.trim())))) ? 0.5 : 1 }}
+              >
                 {isCreating ? 'Создание...' : 'Создать'}
               </button>
             </div>

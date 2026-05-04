@@ -50,7 +50,11 @@ export default function Designers() {
   const fetchDesigners = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.from('profiles').select('id, name, projects(id)').eq('role', 'designer').order('name');
+      const { data, error } = await supabase
+  .from('profiles')
+  .select('id, name, email, phone, telegram, projects(id)') // 🟢 Добавили нужные поля
+  .eq('role', 'designer')
+  .order('name');
       if (error) throw error;
       setDesigners(data || []);
     } catch (error) {
@@ -92,7 +96,15 @@ export default function Designers() {
     else { setEditingDesigner(null); fetchDesigners(); }
   };
 
-  const filteredDesigners = designers.filter(d => d.name?.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredDesigners = designers.filter(d => {
+  const q = searchQuery.toLowerCase();
+  return (
+    (d.name?.toLowerCase() || '').includes(q) ||
+    (d.email?.toLowerCase() || '').includes(q) ||
+    (d.phone || '').includes(q) ||
+    (d.telegram?.toLowerCase() || '').includes(q)
+  );
+});
 
   if (!user) return null;
 
@@ -208,19 +220,27 @@ export default function Designers() {
                   
                   {/* Аватарка и имя */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px', overflow: 'hidden' }}>
-                    <div style={{ 
-                      width: '38px', height: '38px', borderRadius: '50%', 
-                      background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', 
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                      fontSize: '1.2rem', fontWeight: 'bold', border: '1px solid rgba(0, 255, 136, 0.2)',
-                      flexShrink: 0
-                    }}>
-                      {d.name ? d.name.charAt(0).toUpperCase() : 'U'}
-                    </div>
-                    <span style={{ fontSize: isMobile ? '0.9rem' : '1rem', color: '#fff', fontWeight: '500', letterSpacing: '0.3px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {d.name}
-                    </span>
-                  </div>
+  {/* Аватарка */}
+  <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold', border: '1px solid rgba(0, 255, 136, 0.2)', flexShrink: 0 }}>
+    {/* Если имени нет, берем первую букву почты */}
+    {(d.name || d.email || 'U').charAt(0).toUpperCase()}
+  </div>
+  
+  {/* Имя и Контакты */}
+  <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <span style={{ fontSize: isMobile ? '0.9rem' : '1rem', color: '#fff', fontWeight: '500', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+      {/* Если имени нет, выводим почту */}
+      {d.name || d.email}
+    </span>
+    
+    {/* Строка с контактами (появится только если данные есть в базе) */}
+    <span style={{ fontSize: '0.75rem', color: '#888', marginTop: '3px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+      {d.email} 
+      {d.phone ? ` • ${d.phone}` : ''} 
+      {d.telegram ? ` • ${d.telegram}` : ''}
+    </span>
+  </div>
+</div>
 
                   {/* Красивый бейдж количества проектов */}
                   <div>

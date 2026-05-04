@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 // 1. Добавь FileArchive сюда!
-import { ArrowLeft, ChevronRight, Plus, Home, Loader2, FileText, FileArchive } from 'lucide-react'; 
+import { ArrowLeft, ChevronRight, Plus, Home, Loader2, FileText, Trash2, FileArchive } from 'lucide-react'; 
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
 import TiltCard from '../components/TiltCard';
@@ -158,6 +158,26 @@ export default function ProjectView() {
       window.location.reload(); 
     }
   };
+  const handleDeleteRoom = async (e, roomId) => {
+    e.stopPropagation(); 
+    
+    if (window.confirm('Точно удалить это помещение?')) {
+      try {
+        const { error } = await supabase
+          .from('rooms')
+          .delete()
+          .eq('id', roomId);
+          
+        if (error) throw error;
+        
+        // 🟢 МЕНЯЕМ НА ПРАВИЛЬНОЕ НАЗВАНИЕ:
+        fetchProjectAndRooms(); 
+        
+      } catch (error) {
+        alert('Ошибка при удалении: ' + error.message);
+      }
+    }
+  };
 
   // 🟢 2. А это сама верстка шапки (внутри return)
   return (
@@ -175,7 +195,7 @@ export default function ProjectView() {
         ) : !project ? (
           <div style={{ color: '#888' }}>Проект не найден.</div>
         ) : (
-          <div style={{ maxWidth: '1200px' }}>
+          <div style={{ maxWidth: '100%' }}>
             
             {/* --- НАЧАЛО ШАПКИ --- */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
@@ -235,8 +255,6 @@ export default function ProjectView() {
             </div>
             {/* --- КОНЕЦ ШАПКИ --- */}
 
-            {/* Твой дальнейший код: БЛОК: ДОКУМЕНТАЦИЯ и т.д. */}
-
             {/* БЛОК: ДОКУМЕНТАЦИЯ (ОБЩЕЕ ТЗ) */}
             <div style={{ marginBottom: '40px' }}>
               <h2 style={{ fontSize: '1.1rem', color: '#888', marginBottom: '15px', fontWeight: '400' }}>Документация</h2>
@@ -244,7 +262,18 @@ export default function ProjectView() {
               {generalRoom ? (
                 <div 
                   onClick={() => navigate(`/workspace/${generalRoom.id}`)} 
-                  style={{ background: '#111', borderRadius: '12px', border: '1px solid #333', padding: isMobile ? '15px' : '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: '0.3s' }}
+                  style={{ 
+                    maxWidth: '500px', /* 🟢 ВОТ ОНО! ДОБАВЛЯЕМ СЮДА */
+                    background: '#111', 
+                    borderRadius: '12px', 
+                    border: '1px solid #333', 
+                    padding: isMobile ? '15px' : '20px', 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    transition: '0.3s' 
+                  }}
                   onMouseEnter={(e) => e.currentTarget.style.borderColor = '#00ff88'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = '#333'}
                 >
@@ -297,7 +326,33 @@ export default function ProjectView() {
                     backgroundSize: 'cover',
                     backgroundPosition: 'center'
                   }}
-                >
+                >{/* 🟢 КНОПКА УДАЛЕНИЯ ПОМЕЩЕНИЯ (ТОЛЬКО ДЛЯ ТЕБЯ) */}
+  {isVisualizer && (
+    <button 
+      onClick={(e) => handleDeleteRoom(e, room.id)}
+      style={{
+        position: 'absolute',
+        top: '15px',
+        right: '15px',
+        background: 'rgba(255, 68, 68, 0.2)', // Полупрозрачный красный
+        color: '#ff4444',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '8px',
+        cursor: 'pointer',
+        zIndex: 10, // Чтобы быть выше градиента (у которого zIndex: 1)
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backdropFilter: 'blur(4px)',
+        transition: 'all 0.2s ease'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 68, 68, 0.4)'}
+      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 68, 68, 0.2)'}
+    >
+      <Trash2 size={18} />
+    </button>
+  )}
                   <div style={{
                     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
                     background: 'linear-gradient(to top, rgba(10,10,10, 0.95) 0%, rgba(10,10,10, 0.2) 60%, transparent 100%)',
